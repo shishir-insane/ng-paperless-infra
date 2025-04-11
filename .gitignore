@@ -37,5 +37,5 @@ override.tf.json
 terraform.rc
 
 # Other files
-scripts/deploy.sh
-scripts/infra-check.sh
+scripts/deploy.sh*
+infra-check.sh

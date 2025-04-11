@@ -22,7 +22,6 @@ resource "hcloud_server" "paperless" {
   image       = var.image
   location    = var.location
   ssh_keys    = [hcloud_ssh_key.default.id]
-  user_data   = file("${path.module}/scripts/init.sh")
 
   labels = {
     project = "paperless"
