@@ -11,7 +11,6 @@ variable "ssh_public_key" {
 
 variable "ssh_public_key_path" {
   type        = string
-  default     = "${path.module}/keys/hetzner-paperless.pub"
   description = "Path to SSH public key file for local use"
 }
 
