@@ -1,4 +1,4 @@
-name: Deploy Angular App to S3 + CloudFront
+name: Deploy Paperless to Hetzner
 
 on:
   push:
@@ -7,43 +7,133 @@ on:
 
 jobs:
   deploy:
-    name: Build & Deploy ng-paperless
+    name: Provision and Deploy Paperless
     runs-on: ubuntu-latest
 
     env:
-      BUCKET_NAME: ${{ vars.BUCKET_NAME }}
-      DISTRIBUTION_ID: ${{ vars.DISTRIBUTION_ID }}
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      PAPERLESS_DOMAIN: ${{ vars.PAPERLESS_DOMAIN }}
+      PAPERLESS_EMAIL: ${{ vars.PAPERLESS_EMAIL }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
         with:
-          node-version: '18'
+          terraform_version: 1.5.5
 
-      - name: Install dependencies
-        run: npm install
+      - name: Terraform Init and Apply
+        working-directory: ./terraform
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          terraform init
+          terraform apply -auto-approve -var="hcloud_token=$HCLOUD_TOKEN"
 
-      - name: Build Angular project
-        run: npm run build -- --configuration production
+      - name: Extract public IP from Terraform output
+        id: get_ip
+        working-directory: ./terraform
+        run: |
+          echo "PUBLIC_IP=$(terraform output -raw instance_ip)" >> $GITHUB_ENV
 
-      - name: Upload to S3
-        uses: jakejarvis/s3-sync-action@master
+      - name: Confirm server is ready
+        run: |
+          echo "Waiting for server to boot..."
+          sleep 30
+
+      - name: Deploy Paperless using SSH
+        uses: appleboy/ssh-action@v0.1.10
         with:
-          args: --acl public-read --delete
-        env:
-          AWS_S3_BUCKET: ${{ env.BUCKET_NAME }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          SOURCE_DIR: "dist/ng-paperless"
+          host: ${{ env.PUBLIC_IP }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Install Docker, Docker Compose, Nginx, Certbot
+            apt update -y
+            apt install -y docker.io docker-compose nginx certbot python3-certbot-nginx ufw
+            ufw allow OpenSSH
+            ufw allow 'Nginx Full'
+            ufw --force enable
 
-      - name: Invalidate CloudFront cache
-        uses: chetan/invalidate-cloudfront-action@v2
-        env:
-          DISTRIBUTION: ${{ env.DISTRIBUTION_ID }}
-          PATHS: "/*"
-          AWS_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            # Create Paperless directory
+            mkdir -p /opt/paperless
+            cd /opt/paperless
+
+            # Write docker-compose.yml
+            cat <<EOF > docker-compose.yml
+            version: "3.7"
+            services:
+              broker:
+                image: redis:7
+                restart: always
+
+              db:
+                image: postgres:15
+                restart: always
+                environment:
+                  POSTGRES_DB: paperless
+                  POSTGRES_USER: paperless
+                  POSTGRES_PASSWORD: paperless
+                volumes:
+                  - paperless_db:/var/lib/postgresql/data
+
+              webserver:
+                image: ghcr.io/paperless-ngx/paperless-ngx:latest
+                restart: always
+                depends_on:
+                  - db
+                  - broker
+                ports:
+                  - "8000:8000"
+                volumes:
+                  - paperless_data:/usr/src/paperless/data
+                  - paperless_media:/usr/src/paperless/media
+                  - paperless_export:/usr/src/paperless/export
+                  - paperless_consume:/usr/src/paperless/consume
+                environment:
+                  PAPERLESS_REDIS: redis://broker:6379
+                  PAPERLESS_DBHOST: db
+                  PAPERLESS_DBUSER: paperless
+                  PAPERLESS_DBPASS: paperless
+                  PAPERLESS_DBNAME: paperless
+                  PAPERLESS_SECRET_KEY: changeme_in_production
+                  PAPERLESS_TIME_ZONE: Europe/Berlin
+                  PAPERLESS_URL: https://${{ env.PAPERLESS_DOMAIN }}/
+                  USERMAP_UID: 1000
+                  USERMAP_GID: 1000
+            volumes:
+              paperless_data:
+              paperless_media:
+              paperless_export:
+              paperless_consume:
+              paperless_db:
+            EOF
+
+            # Write nginx config
+            cat <<EOF > /etc/nginx/sites-available/paperless
+            server {
+                listen 80;
+                server_name ${{ env.PAPERLESS_DOMAIN }};
+
+                location / {
+                    proxy_pass http://localhost:8000;
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto https;
+                }
+            }
+            EOF
+
+            ln -sf /etc/nginx/sites-available/paperless /etc/nginx/sites-enabled/paperless
+            nginx -t && systemctl reload nginx
+
+            # Launch containers
+            cd /opt/paperless
+            docker-compose pull
+            docker-compose up -d
+
+            # Install SSL certificate
+            certbot --nginx -d ${{ env.PAPERLESS_DOMAIN }} --non-interactive --agree-tos -m ${{ env.PAPERLESS_EMAIL }}

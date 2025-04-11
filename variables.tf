@@ -1,27 +1,29 @@
-variable "bucket_name" {
+variable "hcloud_token" {
+  description = "Hetzner API token"
   type        = string
-  description = "The name of the S3 bucket for hosting ng-paperless"
 }
 
-variable "distribution_id" {
-  type        = string
-  description = "CloudFront distribution ID used in CI/CD invalidation"
+variable "ssh_public_key_path" {
+  description = "Path to your local public SSH key"
+  default     = "~/.ssh/id_rsa.pub"
 }
 
-variable "lightsail_instance_name" {
-  type        = string
-  default     = "paperless-backend"
-  description = "Name for the Lightsail instance"
+variable "instance_name" {
+  default     = "paperless-server"
+  description = "Instance name"
 }
 
-variable "lightsail_availability_zone" {
-  type        = string
-  default     = "us-east-1a"
-  description = "Availability Zone for the Lightsail instance"
+variable "instance_type" {
+  default     = "cx22" # 2GB RAM, 2 vCPU
+  description = "Hetzner server type"
 }
 
-variable "lightsail_key_pair_name" {
-  type        = string
-  description = "The name of the Lightsail SSH key pair (must be pre-created in AWS)"
+variable "image" {
+  default     = "ubuntu-22.04"
+  description = "OS image"
 }
 
+variable "location" {
+  default     = "nbg1" # Nuremberg (Germany)
+  description = "Server location"
+}

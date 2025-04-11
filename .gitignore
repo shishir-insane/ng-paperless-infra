@@ -37,4 +37,5 @@ override.tf.json
 terraform.rc
 
 # Other files
-deploy.sh
+scripts/deploy.sh
+scripts/infracost.sh
