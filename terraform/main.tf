@@ -27,14 +27,7 @@ resource "hcloud_server" "paperless" {
   image       = var.image
   location    = var.location
   ssh_keys    = [hcloud_ssh_key.default.id]
-
-  # Optional cloud-init if enabled
-  dynamic "user_data" {
-    for_each = var.enable_user_data ? [1] : []
-    content {
-      user_data = file("${path.module}/scripts/init.sh")
-    }
-  }
+  user_data   = var.enable_user_data ? file("${path.module}/scripts/init.sh") : null
 
   labels = {
     project = "paperless"

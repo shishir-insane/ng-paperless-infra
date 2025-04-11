@@ -38,4 +38,6 @@ variable "location" {
 variable "enable_user_data" {
   type        = bool
   default     = false
+  description = "Enable cloud-init user_data for server bootstrapping"
 }
+
