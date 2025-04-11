@@ -81,3 +81,26 @@ resource "aws_cloudfront_distribution" "cdn" {
     cloudfront_default_certificate = true
   }
 }
+
+resource "aws_lightsail_instance" "paperless_backend" {
+  name              = var.lightsail_instance_name
+  availability_zone = var.lightsail_availability_zone
+  blueprint_id      = "ubuntu_22_04"
+  bundle_id         = "nano_2_0"  # 512 MB RAM, upgrade if needed
+  key_pair_name     = var.lightsail_key_pair_name
+
+  user_data = file("${path.module}/scripts/lightsail-init.sh")
+
+  tags = {
+    Name = "paperless-backend"
+  }
+}
+
+resource "aws_lightsail_static_ip" "paperless_ip" {
+  name = "${var.lightsail_instance_name}-ip"
+}
+
+resource "aws_lightsail_static_ip_attachment" "attach_ip" {
+  instance_name = aws_lightsail_instance.paperless_backend.name
+  static_ip_name = aws_lightsail_static_ip.paperless_ip.name
+}
