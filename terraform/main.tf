@@ -2,7 +2,7 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "~> 1.42"  # Or latest version
+      version = "~> 1.42"
     }
   }
 }
@@ -11,9 +11,14 @@ provider "hcloud" {
   token = var.hcloud_token
 }
 
+# SSH key from raw value or from file (one should be provided)
+locals {
+  resolved_ssh_key = var.ssh_public_key != "" ? var.ssh_public_key : file(var.ssh_public_key_path)
+}
+
 resource "hcloud_ssh_key" "default" {
   name       = "paperless-key"
-  public_key = file(var.ssh_public_key_path)
+  public_key = local.resolved_ssh_key
 }
 
 resource "hcloud_server" "paperless" {
@@ -22,6 +27,14 @@ resource "hcloud_server" "paperless" {
   image       = var.image
   location    = var.location
   ssh_keys    = [hcloud_ssh_key.default.id]
+
+  # Optional cloud-init if enabled
+  dynamic "user_data" {
+    for_each = var.enable_user_data ? [1] : []
+    content {
+      user_data = file("${path.module}/scripts/init.sh")
+    }
+  }
 
   labels = {
     project = "paperless"

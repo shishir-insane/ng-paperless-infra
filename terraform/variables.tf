@@ -1,29 +1,41 @@
 variable "hcloud_token" {
-  description = "Hetzner API token"
   type        = string
+  description = "Hetzner Cloud API token"
+}
+
+variable "ssh_public_key" {
+  type        = string
+  default     = ""
+  description = "Raw SSH public key string (used in CI/CD)"
 }
 
 variable "ssh_public_key_path" {
-  description = "Path to your local public SSH key"
-  default     = "~/.ssh/id_rsa.pub"
+  type        = string
+  default     = "~/.ssh/hetzner-paperless.pub"
+  description = "Path to SSH public key file for local use"
 }
 
 variable "instance_name" {
+  type        = string
   default     = "paperless-server"
-  description = "Instance name"
 }
 
 variable "instance_type" {
-  default     = "cx22" # 2GB RAM, 2 vCPU
-  description = "Hetzner server type"
+  type        = string
+  default     = "cx22"
 }
 
 variable "image" {
+  type        = string
   default     = "ubuntu-22.04"
-  description = "OS image"
 }
 
 variable "location" {
-  default     = "nbg1" # Nuremberg (Germany)
-  description = "Server location"
+  type        = string
+  default     = "nbg1"
+}
+
+variable "enable_user_data" {
+  type        = bool
+  default     = false
 }
