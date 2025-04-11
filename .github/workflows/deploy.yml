@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BUCKET_NAME: your-ng-paperless-site
-      DISTRIBUTION_ID: YOUR_CLOUDFRONT_DISTRIBUTION_ID
+      BUCKET_NAME: ${{ vars.BUCKET_NAME }}
+      DISTRIBUTION_ID: ${{ vars.DISTRIBUTION_ID }}
 
     steps:
       - name: Checkout code
