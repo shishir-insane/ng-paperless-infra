@@ -1,0 +1,17 @@
+# Hetzner API token (DO NOT commit the real one)
+hcloud_token = "your-hcloud-token-here"
+
+# SSH public key to use for instance access
+ssh_public_key_path = "~/.ssh/hetzner-paperless.pub"
+
+# Server instance name
+instance_name = "paperless-server"
+
+# Server type (valid options: cx11, cx22, cx31, etc.)
+instance_type = "cx22"
+
+# Image to use for the OS
+image = "ubuntu-22.04"
+
+# Server location (nbg1 = Nuremberg, fsn1 = Falkenstein, hel1 = Helsinki)
+location = "nbg1"

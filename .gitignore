@@ -38,4 +38,4 @@ terraform.rc
 
 # Other files
 scripts/deploy.sh
-scripts/infracost.sh
+scripts/infra-check.sh
