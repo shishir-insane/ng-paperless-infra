@@ -24,13 +24,21 @@ jobs:
         with:
           terraform_version: 1.5.5
 
+      - name: Write public SSH key to file
+        run: |
+          mkdir -p terraform/keys
+          echo "${{ secrets.SSH_PUBLIC_KEY }}" > terraform/keys/hetzner-paperless.pub
+        
       - name: Terraform Init and Apply
         working-directory: ./terraform
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
         run: |
           terraform init
-          terraform apply -auto-approve -var="hcloud_token=$HCLOUD_TOKEN" -var="ssh_public_key_path=./keys/hetzner-paperless.pub"
+          terraform apply -auto-approve \
+            -var="hcloud_token=$HCLOUD_TOKEN" \
+            -var="ssh_public_key_path=./keys/hetzner-paperless.pub"
+        
 
       - name: Extract public IP from Terraform output
         id: get_ip

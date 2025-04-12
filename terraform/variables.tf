@@ -6,12 +6,12 @@ variable "hcloud_token" {
 variable "ssh_public_key" {
   type        = string
   default     = ""
-  description = "Raw SSH public key string (used in CI/CD)"
+  description = "Raw SSH public key string (used in CI/CD only)"
 }
 
 variable "ssh_public_key_path" {
   type        = string
-  description = "Path to SSH public key file for local use"
+  description = "Path to SSH public key (used locally)"
 }
 
 variable "instance_name" {
@@ -37,6 +37,5 @@ variable "location" {
 variable "enable_user_data" {
   type        = bool
   default     = false
-  description = "Enable cloud-init user_data for server bootstrapping"
+  description = "Enable cloud-init provisioning"
 }
-
