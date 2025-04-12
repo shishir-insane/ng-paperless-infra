@@ -1,5 +1,7 @@
 # Paperless-ng Deployment on Hetzner Cloud
 
+[![Deploy Paperless to Hetzner](https://github.com/shishir-insane/ng-paperless-infra/actions/workflows/deploy.yml/badge.svg)](https://github.com/shishir-insane/ng-paperless-infra/actions/workflows/deploy.yml)
+
 ## Requirements
 
 - Hetzner API Token

@@ -23,21 +23,36 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.5
-          
+
+      - name: Try importing existing SSH key if needed
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          SSH_PUBLIC_KEY_NAME: paperless-key
+        run: |
+          echo "🔍 Checking if SSH key '$SSH_PUBLIC_KEY_NAME' already exists in Hetzner..."
+          set -e
+          KEY_ID=$(hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SSH_PUBLIC_KEY_NAME\") | .id")
+      
+          if [[ -n "$KEY_ID" ]]; then
+            echo "✅ SSH key exists with ID: $KEY_ID. Importing into Terraform state..."
+            terraform -chdir=terraform init
+            terraform -chdir=terraform import hcloud_ssh_key.default "$KEY_ID"
+          else
+            echo "ℹ️ No existing SSH key found — Terraform will create it."
+          fi
+
       - name: Validate SSH public key format
         run: |
           echo "$SSH_PUBLIC_KEY" | grep -E "^ssh-(rsa|ed25519|ecdsa)" > /dev/null
         env:
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
                 
-      - name: Terraform Init and Apply
-        working-directory: ./terraform
+      - name: Terraform Apply
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
         run: |
-          terraform init
-          terraform apply -auto-approve \
+          terraform -chdir=terraform apply -auto-approve \
             -var="hcloud_token=$HCLOUD_TOKEN" \
             -var="ssh_public_key=$SSH_PUBLIC_KEY"
         
