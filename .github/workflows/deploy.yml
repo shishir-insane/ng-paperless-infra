@@ -40,21 +40,22 @@ jobs:
           else
             echo "ℹ️ No existing SSH key found — Terraform will create it."
           fi
-
+           
       - name: Validate SSH public key format
         run: |
           echo "$SSH_PUBLIC_KEY" | grep -E "^ssh-(rsa|ed25519|ecdsa)" > /dev/null
         env:
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
                 
-      - name: Terraform Apply
+      - name: Terraform Init & Apply
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
         run: |
+          terraform -chdir=terraform init
           terraform -chdir=terraform apply -auto-approve \
             -var="hcloud_token=$HCLOUD_TOKEN" \
-            -var="ssh_public_key=$SSH_PUBLIC_KEY"
+            -var="ssh_public_key=$SSH_PUBLIC_KEY"        
         
       - name: Extract public IP from Terraform output
         id: get_ip
