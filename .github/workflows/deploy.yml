@@ -45,12 +45,17 @@ jobs:
             echo "✅ No existing SSH key found. Terraform will create it."
           fi
            
-      - name: Validate SSH public key format
+      - name: Validate SSH Public Key Format
         run: |
-          echo "$SSH_PUBLIC_KEY" | grep -E "^ssh-(rsa|ed25519|ecdsa)" > /dev/null || {
-            echo "❌ Invalid SSH public key format or missing value."
+          if [[ -z "$SSH_PUBLIC_KEY" ]]; then
+            echo "❌ SSH_PUBLIC_KEY is empty. Make sure it is set correctly as a GitHub Secret."
+            exit 1
+          fi
+          echo "$SSH_PUBLIC_KEY" | grep -qE '^ssh-(rsa|ed25519|ecdsa)' || {
+            echo "❌ SSH_PUBLIC_KEY does not look like a valid public key. It must start with ssh-rsa, ssh-ed25519, etc."
             exit 1
           }
+          echo "✅ SSH public key format looks good."
         env:
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
                 
