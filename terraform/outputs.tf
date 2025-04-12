@@ -15,3 +15,8 @@ output "instance_labels" {
   description = "Labels applied to the server"
   value       = hcloud_server.paperless.labels
 }
+
+output "ssh_key_name" {
+  description = "The name of the created SSH key"
+  value       = hcloud_ssh_key.default.name
+}

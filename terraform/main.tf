@@ -4,6 +4,10 @@ terraform {
       source  = "hetznercloud/hcloud"
       version = "~> 1.42"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.5"
+    }
   }
 }
 
@@ -11,14 +15,20 @@ provider "hcloud" {
   token = var.hcloud_token
 }
 
-# SSH key from raw value or from file (one should be provided)
+resource "random_id" "unique_id" {
+  byte_length = 2
+}
+
 locals {
   resolved_ssh_key = var.ssh_public_key != "" ? var.ssh_public_key : file(var.ssh_public_key_path)
 }
 
 resource "hcloud_ssh_key" "default" {
-  name       = "paperless-key"
+  name       = "paperless-key-${random_id.unique_id.hex}"
   public_key = local.resolved_ssh_key
+  lifecycle {
+    prevent_destroy = false
+  }
 }
 
 resource "hcloud_server" "paperless" {
