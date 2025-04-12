@@ -20,7 +20,7 @@ resource "random_id" "unique_id" {
 }
 
 locals {
-  resolved_ssh_key = var.ssh_public_key != "" ? var.ssh_public_key : file(var.ssh_public_key_path)
+  resolved_ssh_key = var.ssh_public_key
 }
 
 resource "hcloud_ssh_key" "default" {
