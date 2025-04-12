@@ -1,7 +1,7 @@
 name: Cleanup Orphaned SSH Keys
 
 on:
-  workflow_dispatch:  # Allows manual trigger in the GitHub UI
+  workflow_dispatch:
 
 jobs:
   cleanup:
@@ -10,24 +10,20 @@ jobs:
     steps:
       - name: Install Hetzner CLI
         run: |
-          curl -O https://github.com/hetznercloud/cli/releases/download/v1.36.0/hcloud-linux-amd64.tar.gz
-          tar -xzf hcloud-linux-amd64.tar.gz
-          sudo mv hcloud /usr/local/bin/
+          curl -fsSL https://github.com/hetznercloud/cli/releases/latest/download/hcloud-linux-amd64.tar.gz -o hcloud.tar.gz
+          mkdir hcloud-cli && tar -xzf hcloud.tar.gz -C hcloud-cli
+          sudo mv hcloud-cli/hcloud /usr/local/bin/
 
-      - name: Delete old SSH keys with prefix "paperless-key"
+      - name: Delete SSH keys with prefix "paperless-key"
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
         run: |
-          echo "Fetching and deleting SSH keys matching 'paperless-key*'..."
-
+          echo "🧹 Checking for SSH keys named 'paperless-key*'..."
           hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" |
             jq -c '.[] | select(.name | startswith("paperless-key"))' |
             while read -r key; do
               key_id=$(echo "$key" | jq -r '.id')
               key_name=$(echo "$key" | jq -r '.name')
-
-              echo "🗑️  Deleting SSH key: $key_name (ID: $key_id)"
+              echo "🗑️ Deleting SSH key: $key_name (ID: $key_id)"
               hcloud ssh-key delete "$key_id" --token "$HCLOUD_TOKEN"
             done
-
-          echo "✅ Cleanup complete."
