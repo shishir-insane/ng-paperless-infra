@@ -24,6 +24,13 @@ jobs:
         with:
           terraform_version: 1.5.5
 
+      - name: Install Hetzner CLI and jq
+        run: |
+          sudo apt update && sudo apt install -y jq
+          curl -fsSL https://github.com/hetznercloud/cli/releases/latest/download/hcloud-linux-amd64.tar.gz -o hcloud.tar.gz
+          mkdir hcloud-cli && tar -xzf hcloud.tar.gz -C hcloud-cli
+          sudo mv hcloud-cli/hcloud /usr/local/bin/
+      
       - name: Try importing existing SSH key if needed
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
@@ -47,16 +54,15 @@ jobs:
         env:
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
                 
-      - name: Terraform Init & Apply
+      - name: Terraform Apply
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
         run: |
-          terraform -chdir=terraform init
           terraform -chdir=terraform apply -auto-approve \
             -var="hcloud_token=$HCLOUD_TOKEN" \
-            -var="ssh_public_key=$SSH_PUBLIC_KEY"        
-        
+            -var="ssh_public_key=$SSH_PUBLIC_KEY"
+
       - name: Extract public IP from Terraform output
         id: get_ip
         working-directory: ./terraform

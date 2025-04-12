@@ -1,9 +1,6 @@
 # Hetzner API token (DO NOT commit the real one)
 hcloud_token = "your-hcloud-token-here"
 
-# SSH public key to use for instance access
-ssh_public_key_path = "~/.ssh/hetzner-paperless.pub"
-
 # Server instance name
 instance_name = "paperless-server"
 
