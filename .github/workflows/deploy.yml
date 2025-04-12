@@ -30,22 +30,19 @@ jobs:
           curl -fsSL https://github.com/hetznercloud/cli/releases/latest/download/hcloud-linux-amd64.tar.gz -o hcloud.tar.gz
           mkdir hcloud-cli && tar -xzf hcloud.tar.gz -C hcloud-cli
           sudo mv hcloud-cli/hcloud /usr/local/bin/
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
       
-      - name: Try importing existing SSH key if needed
-        env:
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-          SSH_PUBLIC_KEY_NAME: paperless-key
+      - name: Import SSH Key if it exists
         run: |
-          echo "🔍 Checking if SSH key '$SSH_PUBLIC_KEY_NAME' already exists in Hetzner..."
-          set -e
-          KEY_ID=$(hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SSH_PUBLIC_KEY_NAME\") | .id")
-      
+          echo "🔍 Checking if SSH key '$SSH_KEY_NAME' already exists..."
+          KEY_ID=$(hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SSH_KEY_NAME\") | .id")
           if [[ -n "$KEY_ID" ]]; then
-            echo "✅ SSH key exists with ID: $KEY_ID. Importing into Terraform state..."
-            terraform -chdir=terraform init
+            echo "🔁 Importing existing SSH key with ID $KEY_ID"
             terraform -chdir=terraform import hcloud_ssh_key.default "$KEY_ID"
           else
-            echo "ℹ️ No existing SSH key found — Terraform will create it."
+            echo "✅ No existing SSH key found. Terraform will create it."
           fi
            
       - name: Validate SSH public key format
@@ -55,9 +52,6 @@ jobs:
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
                 
       - name: Terraform Apply
-        env:
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
         run: |
           terraform -chdir=terraform apply -auto-approve \
             -var="hcloud_token=$HCLOUD_TOKEN" \
