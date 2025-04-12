@@ -23,23 +23,24 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.5
-
-      - name: Write public SSH key to file
+          
+      - name: Validate SSH public key format
         run: |
-          mkdir -p terraform/keys
-          echo "${{ secrets.SSH_PUBLIC_KEY }}" > terraform/keys/hetzner-paperless.pub
-        
+          echo "$SSH_PUBLIC_KEY" | grep -E "^ssh-(rsa|ed25519|ecdsa)" > /dev/null
+        env:
+          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+                
       - name: Terraform Init and Apply
         working-directory: ./terraform
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
         run: |
           terraform init
           terraform apply -auto-approve \
             -var="hcloud_token=$HCLOUD_TOKEN" \
-            -var="ssh_public_key_path=./keys/hetzner-paperless.pub"
+            -var="ssh_public_key=$SSH_PUBLIC_KEY"
         
-
       - name: Extract public IP from Terraform output
         id: get_ip
         working-directory: ./terraform

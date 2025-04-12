@@ -9,11 +9,6 @@ variable "ssh_public_key" {
   description = "Raw SSH public key string (used in CI/CD only)"
 }
 
-variable "ssh_public_key_path" {
-  type        = string
-  description = "Path to SSH public key (used locally)"
-}
-
 variable "instance_name" {
   type        = string
   default     = "paperless-server"
