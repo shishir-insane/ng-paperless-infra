@@ -1,36 +1,40 @@
 variable "hcloud_token" {
-  type        = string
   description = "Hetzner Cloud API token"
+  type        = string
+  sensitive   = true
 }
 
 variable "ssh_public_key" {
+  description = "SSH public key for server access"
   type        = string
-  default     = ""
-  description = "Raw SSH public key string (used in CI/CD only)"
 }
 
 variable "instance_name" {
+  description = "Name of the server instance"
   type        = string
-  default     = "paperless-server"
+  default     = "paperless-ngx"
 }
 
 variable "instance_type" {
+  description = "Hetzner Cloud server type"
   type        = string
-  default     = "cx22"
+  default     = "cx11"
 }
 
 variable "image" {
+  description = "Hetzner Cloud server image"
   type        = string
-  default     = "ubuntu-22.04"
+  default     = "debian-12"
 }
 
 variable "location" {
+  description = "Hetzner Cloud server location"
   type        = string
   default     = "nbg1"
 }
 
 variable "enable_user_data" {
+  description = "Whether to enable user data script"
   type        = bool
   default     = false
-  description = "Enable cloud-init provisioning"
 }
