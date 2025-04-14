@@ -35,16 +35,17 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=terraform init
       
-      - name: Import SSH Key if it exists
-        run: |
-          echo "🔍 Checking if SSH key '$SSH_KEY_NAME' already exists..."
-          KEY_ID=$(hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SSH_KEY_NAME\") | .id")
-          if [[ -n "$KEY_ID" ]]; then
-            echo "🔁 Importing existing SSH key with ID $KEY_ID"
-            terraform -chdir=terraform import hcloud_ssh_key.default "$KEY_ID"
-          else
-            echo "✅ No existing SSH key found. Terraform will create it."
-          fi
+      # Since we're using data sources in Terraform now, this step can be removed or commented out
+      # - name: Import SSH Key if it exists
+      #   run: |
+      #     echo "🔍 Checking if SSH key '$SSH_KEY_NAME' already exists..."
+      #     KEY_ID=$(hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SSH_KEY_NAME\") | .id")
+      #     if [[ -n "$KEY_ID" ]]; then
+      #       echo "🔁 Importing existing SSH key with ID $KEY_ID"
+      #       terraform -chdir=terraform import hcloud_ssh_key.default "$KEY_ID"
+      #     else
+      #       echo "✅ No existing SSH key found. Terraform will create it."
+      #     fi
            
       - name: Validate SSH Public Key Format
         run: |
@@ -59,17 +60,6 @@ jobs:
           echo "✅ SSH public key format looks good."
         env:
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
-
-      - name: Debug SSH key variable
-        run: |
-          if [[ -z "$SSH_PUBLIC_KEY" ]]; then
-            echo "❌ SSH_PUBLIC_KEY is empty"
-            exit 1
-          else
-            echo "✅ SSH_PUBLIC_KEY is set"
-          fi
-        env:
-          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}    
                 
       - name: Terraform Apply
         run: |
