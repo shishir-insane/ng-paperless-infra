@@ -18,7 +18,7 @@ variable "instance_name" {
 variable "instance_type" {
   description = "Hetzner Cloud server type"
   type        = string
-  default     = "cx11"
+  default     = "cx22"
 }
 
 variable "image" {
