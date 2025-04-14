@@ -15,15 +15,20 @@ locals {
   resolved_ssh_key = var.ssh_public_key
 }
 
-# Check if the SSH key already exists
-data "hcloud_ssh_key" "existing" {
-  count = 1
-  with_selector = "name=paperless-key"
+# Get all SSH keys and find if our key exists by name
+data "hcloud_ssh_keys" "all" {}
+
+locals {
+  existing_key = [
+    for key in data.hcloud_ssh_keys.all.ssh_keys : key
+    if key.name == "paperless-key"
+  ]
+  existing_key_found = length(local.existing_key) > 0
 }
 
 # Only create a new key if it doesn't exist
 resource "hcloud_ssh_key" "default" {
-  count      = length(data.hcloud_ssh_key.existing) > 0 ? 0 : 1
+  count      = local.existing_key_found ? 0 : 1
   name       = "paperless-key"
   public_key = local.resolved_ssh_key
   lifecycle {
@@ -34,7 +39,7 @@ resource "hcloud_ssh_key" "default" {
 
 # Use the existing key or the new one
 locals {
-  ssh_key_id = length(data.hcloud_ssh_key.existing) > 0 ? data.hcloud_ssh_key.existing[0].id : hcloud_ssh_key.default[0].id
+  ssh_key_id = local.existing_key_found ? local.existing_key[0].id : hcloud_ssh_key.default[0].id
 }
 
 resource "hcloud_server" "paperless" {
