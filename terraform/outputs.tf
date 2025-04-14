@@ -15,5 +15,5 @@ output "instance_labels" {
 
 output "ssh_key_name" {
   description = "The name of the created SSH key"
-  value       = hcloud_ssh_key.default.name
+  value       = length(hcloud_ssh_key.default) > 0 ? hcloud_ssh_key.default[0].name : "Using existing key: paperless-key"
 }
