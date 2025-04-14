@@ -42,6 +42,25 @@ locals {
   ssh_key_id = local.existing_key_found ? local.existing_key[0].id : hcloud_ssh_key.default[0].id
 }
 
+resource "hcloud_volume" "paperless_data" {
+  name             = "paperless-data"
+  size             = 50
+  server_id        = hcloud_server.paperless.id
+  automount        = true
+  format           = "ext4"
+  location         = var.location
+  depends_on       = [hcloud_server.paperless]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  labels = {
+    role = "data"
+  }
+}
+
+
 resource "hcloud_server" "paperless" {
   name        = var.instance_name
   server_type = var.instance_type

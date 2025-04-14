@@ -7,23 +7,17 @@ on:
 
 jobs:
   deploy:
-    name: Provision and Deploy Paperless
     runs-on: ubuntu-latest
 
     env:
       HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-      PAPERLESS_DOMAIN: ${{ vars.PAPERLESS_DOMAIN }}
-      PAPERLESS_EMAIL: ${{ vars.PAPERLESS_EMAIL }}
-      SSH_KEY_NAME: "paperless-key"
+      SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+      SSH_KEY_NAME: paperless-key
+      SERVER_NAME: paperless-server
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.5
 
       - name: Install Hetzner CLI and jq
         run: |
@@ -32,42 +26,54 @@ jobs:
           mkdir hcloud-cli && tar -xzf hcloud.tar.gz -C hcloud-cli
           sudo mv hcloud-cli/hcloud /usr/local/bin/
 
+      - name: Write SSH public key to file
+        run: |
+          mkdir -p terraform/keys
+          echo "$SSH_PUBLIC_KEY" > terraform/keys/paperless-key.pub
+
       - name: Terraform Init
         run: terraform -chdir=terraform init
-      
-      # Since we're using data sources in Terraform now, this step can be removed or commented out
-      # - name: Import SSH Key if it exists
-      #   run: |
-      #     echo "🔍 Checking if SSH key '$SSH_KEY_NAME' already exists..."
-      #     KEY_ID=$(hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SSH_KEY_NAME\") | .id")
-      #     if [[ -n "$KEY_ID" ]]; then
-      #       echo "🔁 Importing existing SSH key with ID $KEY_ID"
-      #       terraform -chdir=terraform import hcloud_ssh_key.default "$KEY_ID"
-      #     else
-      #       echo "✅ No existing SSH key found. Terraform will create it."
-      #     fi
-           
-      - name: Validate SSH Public Key Format
+
+      - name: Import SSH Key if it exists
         run: |
-          if [[ -z "$SSH_PUBLIC_KEY" ]]; then
-            echo "❌ SSH_PUBLIC_KEY is empty. Make sure it is set correctly as a GitHub Secret."
-            exit 1
+          echo "🔍 Checking if SSH key '$SSH_KEY_NAME' already exists..."
+          KEY_ID=$(hcloud ssh-key list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SSH_KEY_NAME\") | .id")
+          if [[ -n "$KEY_ID" ]]; then
+            echo "🔁 Importing existing SSH key with ID $KEY_ID"
+            terraform -chdir=terraform import hcloud_ssh_key.default "$KEY_ID"
+          else
+            echo "✅ No existing SSH key found. Terraform will create it."
           fi
-          echo "$SSH_PUBLIC_KEY" | grep -qE '^ssh-(rsa|ed25519|ecdsa)' || {
-            echo "❌ SSH_PUBLIC_KEY does not look like a valid public key. It must start with ssh-rsa, ssh-ed25519, etc."
-            exit 1
-          }
-          echo "✅ SSH public key format looks good."
-        env:
-          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
-                
+
+      - name: Import Hetzner Server if it exists
+        run: |
+          echo "🔍 Checking if Hetzner server '$SERVER_NAME' already exists..."
+          SERVER_ID=$(hcloud server list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"$SERVER_NAME\") | .id")
+          if [[ -n "$SERVER_ID" ]]; then
+            echo "🔁 Importing existing server (ID: $SERVER_ID) into Terraform..."
+            terraform -chdir=terraform import hcloud_server.paperless "$SERVER_ID"
+          else
+            echo "✅ No existing server found. Terraform will create a new one."
+          fi
+
+      - name: Import Volume if it exists
+        run: |
+          echo "🔍 Checking for volume 'paperless-data'..."
+          VOLUME_ID=$(hcloud volume list --output json --token "$HCLOUD_TOKEN" | jq -r ".[] | select(.name==\"paperless-data\") | .id")
+          if [[ -n "$VOLUME_ID" ]]; then
+            echo "🔁 Importing volume ID $VOLUME_ID..."
+            terraform -chdir=terraform import hcloud_volume.paperless_data "$VOLUME_ID"
+          else
+            echo "✅ No existing volume found. Terraform will create it."
+          fi
+
       - name: Terraform Apply
         run: |
-          export TF_VAR_hcloud_token="$HCLOUD_TOKEN"
-          export TF_VAR_ssh_public_key="$SSH_PUBLIC_KEY"
-          terraform -chdir=terraform apply -auto-approve
-        env:
-          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+          terraform -chdir=terraform apply -auto-approve \
+            -var="hcloud_token=$HCLOUD_TOKEN" \
+            -var="ssh_public_key_path=./keys/paperless-key.pub" \
+            -var="instance_name=paperless-server" \
+            -var="enable_user_data=true"
 
       - name: Extract public IP from Terraform output
         id: get_ip
