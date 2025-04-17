@@ -14,6 +14,6 @@ output "instance_labels" {
 }
 
 output "ssh_key_name" {
-  description = "The name of the SSH key used"
-  value       = local.existing_key_found ? "Using existing key: paperless-key" : hcloud_ssh_key.default[0].name
+  description = "SSH key name of the server"
+  value = hcloud_ssh_key.paperless_ssh_key.name
 }

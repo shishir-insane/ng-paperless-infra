@@ -2,73 +2,134 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "~> 1.42"
+      version = "~> 1.50.0"
     }
   }
+  required_version = ">= 1.0.0"
 }
 
 provider "hcloud" {
   token = var.hcloud_token
 }
 
-locals {
-  resolved_ssh_key = var.ssh_public_key
+# SSH Key
+resource "hcloud_ssh_key" "paperless_ssh_key" {
+  name       = var.ssh_key_name
+  public_key = file(var.ssh_public_key_path)
 }
 
-# Get all SSH keys and find if our key exists by name
-data "hcloud_ssh_keys" "all" {}
-
-locals {
-  existing_key = [
-    for key in data.hcloud_ssh_keys.all.ssh_keys : key
-    if key.name == "paperless-key"
-  ]
-  existing_key_found = length(local.existing_key) > 0
+# Network
+resource "hcloud_network" "paperless_network" {
+  name     = var.network_name
+  ip_range = var.network_ip_range
 }
 
-# Only create a new key if it doesn't exist
-resource "hcloud_ssh_key" "default" {
-  count      = local.existing_key_found ? 0 : 1
-  name       = "paperless-key"
-  public_key = local.resolved_ssh_key
-  lifecycle {
-    prevent_destroy = false
-    ignore_changes = [public_key] # Avoid errors if public key content changes
-  }
+resource "hcloud_network_subnet" "paperless_subnet" {
+  network_id   = hcloud_network.paperless_network.id
+  type         = "cloud"
+  network_zone = var.subnet_zone
+  ip_range     = var.subnet_ip_range
 }
 
-# Use the existing key or the new one
-locals {
-  ssh_key_id = local.existing_key_found ? local.existing_key[0].id : hcloud_ssh_key.default[0].id
-}
-
-resource "hcloud_volume" "paperless_data" {
-  name             = "paperless-data"
-  size             = 50
-  server_id        = hcloud_server.paperless.id
-  automount        = true
-  format           = "ext4"
-  location         = var.location
-  depends_on       = [hcloud_server.paperless]
-
-  lifecycle {
-    prevent_destroy = true
-  }
-
-  labels = {
-    role = "data"
-  }
-}
-
-
+# Server
 resource "hcloud_server" "paperless" {
-  name        = var.instance_name
-  server_type = var.instance_type
+  name        = "paperless-ngx"
   image       = var.image
+  server_type = var.server_type
   location    = var.location
-  ssh_keys    = [local.ssh_key_id]
-  user_data   = var.enable_user_data ? file("${path.module}/scripts/init.sh") : null
-  labels = {
-    project = "paperless"
+  ssh_keys    = [hcloud_ssh_key.paperless_ssh_key.id]
+
+  network {
+    network_id = hcloud_network.paperless_network.id
   }
+
+  depends_on = [
+    hcloud_network_subnet.paperless_subnet
+  ]
+}
+
+user_data = templatefile("${path.module}/templates/cloud-init.yml.tftpl", {
+  admin_user       = var.paperless_admin_user
+  admin_password   = var.paperless_admin_password
+  secret_key       = var.paperless_secret_key
+  ocr_language     = var.paperless_ocr_language
+  domain           = var.domain
+  backup_enabled   = var.backup_enabled
+  backup_retention = var.backup_retention
+  backup_cron      = var.backup_cron
+})
+
+# Volume
+resource "hcloud_volume" "paperless_data" {
+  name      = "paperless-data"
+  size      = var.volume_size
+  server_id = hcloud_server.paperless.id
+  automount = true
+  format    = "ext4"
+}
+
+# Firewall
+resource "hcloud_firewall" "paperless_firewall" {
+  name = "paperless-firewall"
+
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "22"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "80"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  rule {
+    direction = "in"
+    protocol  = "tcp"
+    port      = "443"
+    source_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  # Allow all outbound traffic
+  rule {
+    direction = "out"
+    protocol  = "tcp"
+    port      = "any"
+    destination_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+
+  rule {
+    direction = "out"
+    protocol  = "udp"
+    port      = "any"
+    destination_ips = [
+      "0.0.0.0/0",
+      "::/0"
+    ]
+  }
+}
+
+resource "hcloud_firewall_attachment" "paperless_firewall_attachment" {
+  firewall_id = hcloud_firewall.paperless_firewall.id
+  server_ids  = [hcloud_server.paperless.id]
+}
+
+# Output the server IP
+output "server_ipv4" {
+  value = hcloud_server.paperless.ipv4_address
 }

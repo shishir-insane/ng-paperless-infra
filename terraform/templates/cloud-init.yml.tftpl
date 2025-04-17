@@ -1,0 +1,135 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose
+  - fail2ban
+  - ufw
+  - python3-pip
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+
+runcmd:
+  - systemctl enable docker
+  - systemctl start docker
+  - usermod -aG docker ubuntu
+  - mkdir -p /opt/paperless-ngx/data
+  - mkdir -p /opt/paperless-ngx/media
+  - mkdir -p /opt/paperless-ngx/export
+  - mkdir -p /opt/paperless-ngx/consume
+  - mkdir -p /opt/paperless-ngx/config
+  - chown -R 1000:1000 /opt/paperless-ngx
+  - [ bash, -c, "grep -q '/dev/sdb' /etc/fstab || echo '/dev/sdb /opt/paperless-ngx ext4 defaults 0 0' >> /etc/fstab" ]
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ssh
+  - ufw allow http
+  - ufw allow https
+  - ufw --force enable
+
+write_files:
+  - path: /opt/paperless-ngx/docker-compose.yml
+    content: |
+      version: '3.4'
+      services:
+        broker:
+          image: docker.io/library/redis:7
+          restart: unless-stopped
+          volumes:
+            - redisdata:/data
+            
+        db:
+          image: docker.io/library/postgresql:15
+          restart: unless-stopped
+          volumes:
+            - pgdata:/var/lib/postgresql/data
+          environment:
+            POSTGRES_DB: paperless
+            POSTGRES_USER: paperless
+            POSTGRES_PASSWORD: paperless
+          
+        webserver:
+          image: ghcr.io/paperless-ngx/paperless-ngx:latest
+          restart: unless-stopped
+          depends_on:
+            - db
+            - broker
+          ports:
+            - "8000:8000"
+          volumes:
+            - /opt/paperless-ngx/data:/usr/src/paperless/data
+            - /opt/paperless-ngx/media:/usr/src/paperless/media
+            - /opt/paperless-ngx/export:/usr/src/paperless/export
+            - /opt/paperless-ngx/consume:/usr/src/paperless/consume
+          environment:
+            PAPERLESS_REDIS: redis://broker:6379
+            PAPERLESS_DBHOST: db
+            PAPERLESS_DBPORT: 5432
+            PAPERLESS_DBNAME: paperless
+            PAPERLESS_DBUSER: paperless
+            PAPERLESS_DBPASS: paperless
+            PAPERLESS_ADMIN_USER: ${admin_user}
+            PAPERLESS_ADMIN_PASSWORD: ${admin_password}
+            PAPERLESS_SECRET_KEY: ${secret_key}
+            PAPERLESS_OCR_LANGUAGE: ${ocr_language}
+            PAPERLESS_URL: https://${domain}
+            PAPERLESS_TIME_ZONE: UTC
+      
+      volumes:
+        pgdata:
+        redisdata:
+
+  - path: /etc/nginx/sites-available/paperless
+    content: |
+      server {
+          listen 80;
+          %{if domain != ""}
+          server_name ${domain};
+          %{else}
+          server_name _;
+          %{endif}
+          
+          location / {
+              proxy_pass http://localhost:8000;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+          }
+      }
+
+  - path: /opt/paperless-ngx/backup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      DATE=$(date +%Y-%m-%d)
+      BACKUP_DIR="/opt/paperless-ngx/backup"
+      RETENTION=${backup_retention}
+      
+      mkdir -p $BACKUP_DIR
+      
+      # Backup PostgreSQL database
+      cd /opt/paperless-ngx
+      docker-compose exec -T db pg_dump -U paperless paperless > $BACKUP_DIR/paperless_db_$DATE.sql
+      
+      # Backup config files
+      tar -czf $BACKUP_DIR/paperless_config_$DATE.tar.gz -C /opt/paperless-ngx docker-compose.yml config
+      
+      # Backup media files (optional, can be large)
+      # tar -czf $BACKUP_DIR/paperless_media_$DATE.tar.gz -C /opt/paperless-ngx media
+      
+      # Remove old backups
+      find $BACKUP_DIR -name "paperless_db_*.sql" -type f -mtime +$RETENTION -delete
+      find $BACKUP_DIR -name "paperless_config_*.tar.gz" -type f -mtime +$RETENTION -delete
+      # find $BACKUP_DIR -name "paperless_media_*.tar.gz" -type f -mtime +$RETENTION -delete
+
+%{if backup_enabled}
+  - path: /etc/cron.d/paperless-backup
+    content: |
+      ${backup_cron} root /opt/paperless-ngx/backup.sh > /var/log/paperless-backup.log 2>&1
+%{endif}
+
+final_message: "Paperless-NGX setup is complete. Access it at http://$HOSTNAME:8000 or https://${domain} (once DNS is configured)"

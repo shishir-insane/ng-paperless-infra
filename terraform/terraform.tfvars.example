@@ -1,14 +1,34 @@
-# Hetzner API token (DO NOT commit the real one)
-hcloud_token = "your-hcloud-token-here"
+# Hetzner Cloud API token - Replace with your actual token
+hcloud_token = "your_hetzner_cloud_api_token_here"
 
-# Server instance name
-instance_name = "paperless-server"
-
-# Server type (valid options: cx11, cx22, cx31, etc.)
-instance_type = "cx22"
-
-# Image to use for the OS
+# Server configuration
+server_type = "cx22"  # 2 vCPU, 4GB RAM
+location = "nbg1"     # Nuremberg
 image = "ubuntu-22.04"
 
-# Server location (nbg1 = Nuremberg, fsn1 = Falkenstein, hel1 = Helsinki)
-location = "nbg1"
+# Network configuration
+network_name = "paperless-network"
+network_ip_range = "10.0.0.0/16"
+subnet_ip_range = "10.0.1.0/24"
+subnet_zone = "eu-central"
+
+# SSH key configuration
+ssh_key_name = "paperless-ssh-key"
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# Volume configuration
+volume_size = 10  # GB
+
+# Paperless-NGX configuration
+paperless_admin_user = "admin"
+paperless_admin_password = "your_secure_password_here"
+paperless_secret_key = "your_very_long_random_string_here"
+paperless_ocr_language = "eng"  # Language for OCR
+
+# Domain configuration (if applicable)
+domain = "paperless.yourdomain.com"
+
+# Backup configuration
+backup_enabled = true
+backup_cron = "0 2 * * *"  # Daily at 2 AM
+backup_retention = 7       # Keep backups for 7 days
