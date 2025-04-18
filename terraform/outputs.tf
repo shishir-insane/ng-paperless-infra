@@ -22,3 +22,8 @@ output "ssh_key_name" {
   description = "Name of the SSH key used"
   value       = hcloud_ssh_key.paperless_ssh_key.name
 }
+
+output "ssh_key_id" {
+  description = "ID of the SSH key used"
+  value = data.hcloud_ssh_key.paperless_ssh_key.id
+}
