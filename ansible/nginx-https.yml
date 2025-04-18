@@ -1,0 +1,66 @@
+---
+- name: Set up Nginx and Let's Encrypt for Paperless-ngx
+  hosts: paperless
+  become: yes
+  vars_prompt:
+    - name: domain_name
+      prompt: "Enter your domain name (e.g., paperless.example.com)"
+      private: no
+    - name: email
+      prompt: "Enter your email for Let's Encrypt notifications"
+      private: no
+
+  tasks:
+    - name: Install Nginx and Certbot packages
+      apt:
+        name:
+          - nginx
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    - name: Create Nginx configuration for Paperless
+      template:
+        src: templates/nginx-paperless.conf.j2
+        dest: /etc/nginx/sites-available/paperless.conf
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        server_name: "{{ domain_name }}"
+
+    - name: Enable Paperless site
+      file:
+        src: /etc/nginx/sites-available/paperless.conf
+        dest: /etc/nginx/sites-enabled/paperless.conf
+        state: link
+
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Reload Nginx to apply configuration
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: Obtain Let's Encrypt certificate
+      command: >
+        certbot --nginx \
+        -d {{ domain_name }} \
+        --non-interactive \
+        --agree-tos \
+        --email {{ email }} \
+        --redirect
+      args:
+        creates: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+
+    - name: Set up auto-renewal for certificates
+      cron:
+        name: "Let's Encrypt certificate renewal"
+        job: "certbot renew --quiet --no-self-upgrade"
+        minute: "0"
+        hour: "3"
+        weekday: "1"

@@ -1,13 +1,13 @@
 version: '3.4'
 services:
   broker:
-    image: docker.io/library/redis:7
+    image: redis:7
     restart: unless-stopped
     volumes:
       - redisdata:/data
       
   db:
-    image: docker.io/library/postgresql:15
+    image: postgres:15
     restart: unless-stopped
     volumes:
       - pgdata:/var/lib/postgresql/data
