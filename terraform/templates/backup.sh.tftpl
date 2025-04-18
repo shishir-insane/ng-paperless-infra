@@ -1,0 +1,33 @@
+#!/bin/bash
+# Paperless-NGX backup script
+
+DATE=$(date +%Y-%m-%d)
+BACKUP_DIR="/opt/paperless-ngx/backup"
+RETENTION=${retention}
+
+# Create backup directory if it doesn't exist
+mkdir -p $BACKUP_DIR
+
+# Backup PostgreSQL database
+cd /opt/paperless-ngx
+docker-compose exec -T db pg_dump -U paperless paperless > $BACKUP_DIR/paperless_db_$DATE.sql
+
+# Backup docker-compose configuration
+cp /opt/paperless-ngx/docker-compose.yml $BACKUP_DIR/docker-compose_$DATE.yml
+
+# Backup config files (if any custom configuration exists)
+if [ -d "/opt/paperless-ngx/config" ]; then
+  tar -czf $BACKUP_DIR/paperless_config_$DATE.tar.gz -C /opt/paperless-ngx config
+fi
+
+# Optionally backup media files (can be large)
+# Note: Uncomment the following line if you want to back up media files
+# tar -czf $BACKUP_DIR/paperless_media_$DATE.tar.gz -C /opt/paperless-ngx media
+
+# Remove old backups
+find $BACKUP_DIR -name "paperless_db_*.sql" -type f -mtime +$RETENTION -delete
+find $BACKUP_DIR -name "docker-compose_*.yml" -type f -mtime +$RETENTION -delete
+find $BACKUP_DIR -name "paperless_config_*.tar.gz" -type f -mtime +$RETENTION -delete
+# find $BACKUP_DIR -name "paperless_media_*.tar.gz" -type f -mtime +$RETENTION -delete
+
+echo "Backup completed on $(date)"

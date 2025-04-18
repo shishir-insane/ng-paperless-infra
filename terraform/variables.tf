@@ -62,6 +62,12 @@ variable "ssh_public_key_path" {
   default     = "~/.ssh/id_rsa.pub"
 }
 
+variable "ssh_private_key_path" {
+  description = "Path to the SSH private key file"
+  type        = string
+  default     = "~/.ssh/id_rsa"
+}
+
 # Volume configuration
 variable "volume_size" {
   description = "Size of the volume in GB"

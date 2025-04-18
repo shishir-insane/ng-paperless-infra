@@ -2,7 +2,7 @@
 hcloud_token = "your_hetzner_cloud_api_token_here"
 
 # Server configuration
-server_type = "cx22"  # 2 vCPU, 4GB RAM
+server_type = "cx21"  # 2 vCPU, 4GB RAM - Recommended for Paperless-NGX
 location = "nbg1"     # Nuremberg
 image = "ubuntu-22.04"
 
@@ -15,18 +15,19 @@ subnet_zone = "eu-central"
 # SSH key configuration
 ssh_key_name = "paperless-ssh-key"
 ssh_public_key_path = "~/.ssh/id_rsa.pub"
+ssh_private_key_path = "~/.ssh/id_rsa"
 
 # Volume configuration
-volume_size = 10  # GB
+volume_size = 10  # GB - Consider increasing for large document collections
 
 # Paperless-NGX configuration
 paperless_admin_user = "admin"
-paperless_admin_password = "your_secure_password_here"
-paperless_secret_key = "your_very_long_random_string_here"
-paperless_ocr_language = "eng"  # Language for OCR
+paperless_admin_password = "your_secure_password_here"  # CHANGE THIS!
+paperless_secret_key = "your_very_long_random_string_here"  # CHANGE THIS!
+paperless_ocr_language = "eng"  # Language for OCR (eng, deu, fra, etc.)
 
 # Domain configuration (if applicable)
-domain = "paperless.yourdomain.com"
+domain = ""  # Example: paperless.yourdomain.com (leave empty to use IP address)
 
 # Backup configuration
 backup_enabled = true
