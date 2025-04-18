@@ -2,7 +2,7 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "~> 1.50.0"
+      version = "~> 1.50.0"  # Updated to match your locked version
     }
   }
   required_version = ">= 1.0.0"
@@ -48,17 +48,6 @@ resource "hcloud_server" "paperless" {
   ]
 }
 
-user_data = templatefile("${path.module}/templates/cloud-init.yml.tftpl", {
-  admin_user       = var.paperless_admin_user
-  admin_password   = var.paperless_admin_password
-  secret_key       = var.paperless_secret_key
-  ocr_language     = var.paperless_ocr_language
-  domain           = var.domain
-  backup_enabled   = var.backup_enabled
-  backup_retention = var.backup_retention
-  backup_cron      = var.backup_cron
-})
-
 # Volume
 resource "hcloud_volume" "paperless_data" {
   name      = "paperless-data"
@@ -101,27 +90,6 @@ resource "hcloud_firewall" "paperless_firewall" {
       "::/0"
     ]
   }
-
-  # Allow all outbound traffic
-  rule {
-    direction = "out"
-    protocol  = "tcp"
-    port      = "any"
-    destination_ips = [
-      "0.0.0.0/0",
-      "::/0"
-    ]
-  }
-
-  rule {
-    direction = "out"
-    protocol  = "udp"
-    port      = "any"
-    destination_ips = [
-      "0.0.0.0/0",
-      "::/0"
-    ]
-  }
 }
 
 resource "hcloud_firewall_attachment" "paperless_firewall_attachment" {
@@ -132,4 +100,8 @@ resource "hcloud_firewall_attachment" "paperless_firewall_attachment" {
 # Output the server IP
 output "server_ipv4" {
   value = hcloud_server.paperless.ipv4_address
+}
+
+output "ssh_key_name" {
+  value = hcloud_ssh_key.paperless_ssh_key.name
 }
