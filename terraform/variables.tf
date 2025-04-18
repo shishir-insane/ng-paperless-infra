@@ -107,6 +107,13 @@ variable "domain" {
   default     = ""
 }
 
+# SSL Email configuration
+variable "ssl_email" {
+  description = "Email to register with Let's Encrypt"
+  type        = string
+  default     = ""
+}
+
 # Backup configuration
 variable "backup_enabled" {
   description = "Enable backups"

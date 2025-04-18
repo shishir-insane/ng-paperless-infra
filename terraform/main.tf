@@ -161,6 +161,7 @@ resource "null_resource" "paperless_setup" {
   provisioner "file" {
     content = templatefile("${path.module}/templates/nginx.conf.tftpl", {
       domain = var.domain
+      ssl_email = var.ssl_email
     })
     destination = "/root/paperless-nginx.conf"
   }
@@ -201,8 +202,37 @@ resource "null_resource" "paperless_setup" {
       
       # Configure Nginx and SSL if domain is provided
       "nginx -t && systemctl reload nginx",
-      "[ -n \"${var.domain}\" ] && certbot --nginx -d ${var.domain} --non-interactive --agree-tos -m admin@${var.domain} || echo 'No domain provided, skipping SSL setup'",
-      
+      "for i in {1..10}; do curl -s --head http://localhost | grep '200 OK' && break || sleep 10; done",
+      <<-EOC
+        for i in {1..3}; do
+          certbot --nginx -d ${var.domain} \
+            --non-interactive --agree-tos \
+            --email ${var.ssl_email} --redirect && break
+          echo 'Certbot failed. Retrying in 10s...'
+          sleep 10
+        done
+      EOC
+      ,
+      "echo 'Setting up certbot auto-renew cron job...'",
+      "echo '0 3 * * 1 root certbot renew --quiet --no-self-upgrade' > /etc/cron.d/certbot-renew",
+
+      "echo 'Configuring Fail2Ban for SSH protection...'",
+      <<-EOC
+      cat <<'EOF' > /etc/fail2ban/jail.d/ssh.conf
+      [sshd]
+      enabled = true
+      port    = ssh
+      logpath = %(sshd_log)s
+      backend = systemd
+      maxretry = 5
+      bantime = 1h
+      EOF
+      EOC
+      ,
+
+      "systemctl enable fail2ban",
+      "systemctl restart fail2ban"
+
       # Setup backup
       "mv /root/backup.sh /opt/paperless-ngx/backup.sh",
       "chmod +x /opt/paperless-ngx/backup.sh",
