@@ -28,6 +28,8 @@ paperless_ocr_language = "eng"  # Language for OCR (eng, deu, fra, etc.)
 
 # Domain configuration (if applicable)
 domain = ""  # Example: paperless.yourdomain.com (leave empty to use IP address)
+ssl_email = "john.doe@yourdomain.com"  # Email ID to register with letsencrypt
+
 
 # Backup configuration
 backup_enabled = true

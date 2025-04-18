@@ -75,6 +75,13 @@ variable "volume_size" {
   default     = 10
 }
 
+# Volume cmount onfiguration
+variable "paperless_mount_path" {
+  type    = string
+  default = "/opt/paperless-data"
+}
+
+
 # Paperless-NGX configuration
 variable "paperless_admin_user" {
   description = "Admin username for Paperless-NGX"
@@ -112,6 +119,18 @@ variable "ssl_email" {
   description = "Email to register with Let's Encrypt"
   type        = string
   default     = ""
+}
+
+variable "listen_port" {
+  description = "The port nginx should listen on"
+  type        = number
+  default     = 80
+}
+
+variable "proxy_pass_url" {
+  description = "The URL to proxy requests to"
+  type        = string
+  default     = "http://localhost:8000"
 }
 
 # Backup configuration

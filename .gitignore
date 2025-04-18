@@ -39,3 +39,4 @@ terraform.rc
 # Other files
 scripts/deploy.sh*
 infra-check.sh
+terraform/tf.plan

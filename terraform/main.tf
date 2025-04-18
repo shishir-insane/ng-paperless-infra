@@ -55,6 +55,15 @@ resource "hcloud_volume" "paperless_data" {
   server_id = hcloud_server.paperless.id
   automount = true
   format    = "ext4"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  labels = {
+    environment = "production"
+    purpose     = "paperless-storage"
+  }
 }
 
 # Firewall
@@ -136,6 +145,9 @@ resource "null_resource" "wait_for_ssh" {
 
 # Setup Paperless-NGX
 resource "null_resource" "paperless_setup" {
+  triggers = {
+    always_run = timestamp()
+  }
   depends_on = [null_resource.wait_for_ssh, hcloud_volume.paperless_data]
 
   connection {
@@ -157,11 +169,21 @@ resource "null_resource" "paperless_setup" {
     destination = "/root/docker-compose.yml"
   }
 
+  # Copy HTTP-only Nginx config (used before certbot)
+    provisioner "file" {
+      content = templatefile("${path.module}/templates/nginx-http.conf.tftpl", {
+        domain = var.domain
+      })
+      destination = "/root/nginx-http.conf"
+    }
+
   # Copy the Nginx configuration
   provisioner "file" {
     content = templatefile("${path.module}/templates/nginx.conf.tftpl", {
       domain = var.domain
       ssl_email = var.ssl_email
+      listen_port = var.listen_port
+      proxy_pass_url = var.proxy_pass_url
     })
     destination = "/root/paperless-nginx.conf"
   }
@@ -176,6 +198,7 @@ resource "null_resource" "paperless_setup" {
 
   # Main setup script
   provisioner "remote-exec" {
+    
     inline = [
       # Update and install dependencies
       "apt-get update",
@@ -184,22 +207,30 @@ resource "null_resource" "paperless_setup" {
       # Setup Docker
       "systemctl enable docker",
       "systemctl start docker",
+
+      <<-EOC
+      if ! blkid /dev/sdb; then
+        echo "Volume /dev/sdb appears unformatted. Aborting to avoid accidental formatting."
+        exit 1
+      fi
+      EOC
+      ,
       
       # Configure mount for the volume
-      "mkdir -p /opt/paperless-ngx",
-      "grep -q '/dev/sdb' /etc/fstab || echo '/dev/sdb /opt/paperless-ngx ext4 defaults 0 0' >> /etc/fstab",
+      "mkdir -p /opt/paperless-data",
+      "grep -q '/dev/sdb' /etc/fstab || echo '/dev/sdb /opt/paperless-data ext4 defaults 0 0' >> /etc/fstab",
       "mount -a",
-      
+
       # Setup directories
       "mkdir -p /opt/paperless-ngx/{data,media,export,consume,config,backup}",
       "chown -R 1000:1000 /opt/paperless-ngx",
       
       # Move configuration files
       "mv /root/docker-compose.yml /opt/paperless-ngx/",
-      "mv /root/paperless-nginx.conf /etc/nginx/sites-available/paperless",
+      "mv /root/nginx-http.conf /etc/nginx/sites-available/paperless",
       "ln -sf /etc/nginx/sites-available/paperless /etc/nginx/sites-enabled/",
       "rm -f /etc/nginx/sites-enabled/default",
-      
+
       # Configure Nginx and SSL if domain is provided
       "nginx -t && systemctl reload nginx",
       "for i in {1..10}; do curl -s --head http://localhost | grep '200 OK' && break || sleep 10; done",
@@ -229,9 +260,35 @@ resource "null_resource" "paperless_setup" {
       EOF
       EOC
       ,
+    
+     "mv /root/paperless-nginx.conf /etc/nginx/sites-available/paperless",
+
+      "cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak",
+      "echo 'Ensuring limit_req_zone is defined in nginx.conf...'",
+      <<-EOC
+      cat <<'EOF' > /tmp/patch-nginx.sh
+      #!/bin/bash
+
+      set -e
+
+      # Check if directive already exists
+      if ! grep -q 'limit_req_zone $binary_remote_addr zone=mylimit' /etc/nginx/nginx.conf; then
+        echo "Inserting rate limiting directive into nginx.conf..."
+        cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+        sed -i '/http {/a \    limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;' /etc/nginx/nginx.conf
+      else
+        echo "Rate limiting directive already exists."
+      fi
+      EOF
+
+      chmod +x /tmp/patch-nginx.sh
+      bash /tmp/patch-nginx.sh
+      EOC
+      ,
+      "nginx -t && systemctl reload nginx",
 
       "systemctl enable fail2ban",
-      "systemctl restart fail2ban"
+      "systemctl restart fail2ban",
 
       # Setup backup
       "mv /root/backup.sh /opt/paperless-ngx/backup.sh",
