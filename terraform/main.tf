@@ -222,8 +222,15 @@ resource "null_resource" "paperless_setup" {
       "mount -a",
 
       # Setup directories
-      "mkdir -p /opt/paperless-ngx/{data,media,export,consume,config,backup}",
+      "mkdir -p /opt/paperless-data/data",
+      "mkdir -p /opt/paperless-data/media",
+      "mkdir -p /opt/paperless-data/export",
+      "mkdir -p /opt/paperless-data/consume",
+      "mkdir -p /opt/paperless-data/config",
+      "mkdir -p /opt/paperless-data/backup",
+
       "chown -R 1000:1000 /opt/paperless-ngx",
+      "chown -R 1000:1000 /opt/paperless-data",
       
       # Move configuration files
       "mv /root/docker-compose.yml /opt/paperless-ngx/",

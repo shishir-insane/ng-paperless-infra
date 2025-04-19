@@ -25,10 +25,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - /opt/paperless-ngx/data:/usr/src/paperless/data
-      - /opt/paperless-ngx/media:/usr/src/paperless/media
-      - /opt/paperless-ngx/export:/usr/src/paperless/export
-      - /opt/paperless-ngx/consume:/usr/src/paperless/consume
+      - /opt/paperless-data/data:/usr/src/paperless/data
+      - /opt/paperless-data/media:/usr/src/paperless/media
+      - /opt/paperless-data/export:/usr/src/paperless/export
+      - /opt/paperless-data/consume:/usr/src/paperless/consume
     environment:
       PAPERLESS_REDIS: redis://broker:6379
       PAPERLESS_DBHOST: db
