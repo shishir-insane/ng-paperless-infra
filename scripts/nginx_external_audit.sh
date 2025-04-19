@@ -35,17 +35,36 @@ for pkg in curl git nmap; do
   fi
 done
 
+echo -e "\n${BLUE}Checking if $DOMAIN is reachable on port 443...${NC}"
+nc -z -w3 $DOMAIN 443
+if [ $? -ne 0 ]; then
+  echo -e "${RED}[FAILED] Cannot connect to $DOMAIN on port 443${NC}"
+  echo -e "${YELLOW}Suggestion: Check firewall rules, DNS, or local network restrictions${NC}"
+  exit 1
+else
+  check_passed "Port 443 is reachable on $DOMAIN"
+fi
+
 # 1. SSL/TLS Test
 echo -e "\n${BLUE}Checking SSL/TLS configuration...${NC}"
 if [ ! -d "testssl.sh" ]; then
   git clone --quiet https://github.com/drwetter/testssl.sh.git
 fi
-cd testssl.sh && ./testssl.sh --quiet --warnings off https://$DOMAIN > ../ssl_test.log && cd ..
-SSL_GRADE=$(grep "Overall grade" ssl_test.log | awk '{print $NF}')
-if [[ "$SSL_GRADE" =~ ^A ]]; then
-  check_passed "SSL/TLS configuration grade is $SSL_GRADE"
+cd testssl.sh
+./testssl.sh --sneaky --quiet --warnings off https://$DOMAIN > ../ssl_test.log 2>&1
+EXIT_CODE=$?
+rm -rf testssl.sh/tmp/* 2>/dev/null
+cd ..
+if [ $EXIT_CODE -ne 0 ]; then
+  echo -e "${RED}[FAILED] testssl.sh failed to run successfully${NC}"
+  echo -e "${YELLOW}Suggestion: Check if the domain uses HTTPS and the port 443 is open${NC}"
 else
-  check_failed "SSL/TLS grade is $SSL_GRADE" "Use strong ciphers, TLS 1.2/1.3, and HSTS headers"
+  SSL_GRADE=$(grep "Overall grade" ssl_test.log | awk '{print $NF}')
+  if [[ "$SSL_GRADE" =~ ^A ]]; then
+    check_passed "SSL/TLS configuration grade is $SSL_GRADE"
+  else
+    check_failed "SSL/TLS grade is $SSL_GRADE" "Use strong ciphers, TLS 1.2/1.3, and HSTS headers"
+  fi
 fi
 
 # 2. Security Headers

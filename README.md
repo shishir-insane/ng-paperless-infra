@@ -18,6 +18,24 @@ This Terraform project sets up [Paperless-NGX](https://docs.paperless-ngx.com/) 
 - [Hetzner Cloud](https://www.hetzner.com/cloud) account
 - SSH key pair
 
+## Project Structure
+
+```
+terraform/
+├── main.tf                 # Main Terraform configuration
+├── variables.tf            # Variable definitions
+├── outputs.tf             # Output definitions
+├── terraform.tfvars       # Your specific variables (not in git)
+├── terraform.tfvars.example  # Example variables file
+├── .terraform.lock.hcl    # Dependency lock file
+└── templates/             # Template files for configuration
+    ├── docker-compose.yml.tftpl
+    ├── nginx-http.conf.tftpl
+    ├── nginx.conf.tftpl
+    ├── backup.sh.tftpl
+    └── cloud-init.yml.tftpl
+```
+
 ## Getting Started
 
 1. Clone this repository:

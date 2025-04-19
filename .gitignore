@@ -40,3 +40,7 @@ terraform.rc
 scripts/deploy.sh*
 infra-check.sh
 terraform/tf.plan
+scripts/testssl.sh
+scripts/testssl.sh/*
+scripts/ssl_test.log
+scripts/nmap_scan.txt
