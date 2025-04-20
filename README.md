@@ -101,6 +101,120 @@ terraform/
    - If you provided a domain: `https://your-domain.com`
    - Without domain: `http://server-ip:8000`
 
+## Configuration Variables
+
+### Provider Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `hcloud_token` | string | Hetzner Cloud API token | - |
+| `provider_retry_max_retries` | number | Maximum number of retries for provider operations | 3 |
+| `provider_retry_min_delay` | number | Minimum delay between retries in seconds | 5 |
+| `provider_retry_max_delay` | number | Maximum delay between retries in seconds | 20 |
+
+### Environment Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `environment` | string | Environment name (e.g., production, staging, development) | "production" |
+| `project_name` | string | Name of the project | "paperless-ngx" |
+| `managed_by` | string | Tool used to manage the infrastructure | "terraform" |
+
+### Server Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `server_type` | string | Server type to use (cx21, cx31, etc.) | "cx21" |
+| `location` | string | Location for the server (nbg1, fsn1, hel1, etc.) | "nbg1" |
+| `image` | string | OS image to use | "ubuntu-22.04" |
+
+### Network Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `network_name` | string | Name of the network | "paperless-network" |
+| `network_ip_range` | string | IP range for the network | "10.0.0.0/16" |
+| `subnet_ip_range` | string | IP range for the subnet | "10.0.1.0/24" |
+| `subnet_zone` | string | Zone for the subnet | "eu-central" |
+
+### SSH Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `ssh_key_name` | string | Name of the SSH key | "paperless-ssh-key" |
+| `ssh_public_key_path` | string | Path to the SSH public key file | "~/.ssh/id_rsa.pub" |
+| `ssh_private_key_path` | string | Path to the SSH private key file | "~/.ssh/id_rsa" |
+
+### Volume Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `volume_size` | number | Size of the volume in GB | 10 |
+| `volume_format` | string | Filesystem format for the volume | "ext4" |
+| `volume_mount_options` | string | Mount options for the volume | "defaults,nofail" |
+| `paperless_mount_path` | string | Mount path for Paperless data | "/opt/paperless-data" |
+
+### Security Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `allowed_ssh_ips` | list(string) | List of IP addresses allowed to access SSH | ["0.0.0.0/0"] |
+| `allowed_http_ips` | list(string) | List of IP addresses allowed to access HTTP | ["0.0.0.0/0"] |
+| `allowed_https_ips` | list(string) | List of IP addresses allowed to access HTTPS | ["0.0.0.0/0"] |
+| `fail2ban_maxretry` | number | Maximum number of failed login attempts before banning | 5 |
+| `fail2ban_bantime` | number | Duration of ban in seconds | 3600 |
+| `fail2ban_findtime` | number | Time window for counting failed attempts in seconds | 3600 |
+
+### Paperless-NGX Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `paperless_admin_user` | string | Admin username for Paperless-NGX | "admin" |
+| `paperless_admin_password` | string | Admin password for Paperless-NGX | - |
+| `paperless_secret_key` | string | Secret key for Paperless-NGX | - |
+| `paperless_ocr_language` | string | Language for OCR | "eng" |
+
+### Domain and SSL Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `domain` | string | Domain name for Paperless-NGX | "" |
+| `ssl_email` | string | Email to register with Let's Encrypt | "" |
+| `listen_port` | number | The port nginx should listen on | 80 |
+| `proxy_pass_url` | string | The URL to proxy requests to | "http://localhost:8000" |
+
+### Nginx Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `nginx_worker_processes` | number | Number of Nginx worker processes | 4 |
+| `nginx_worker_connections` | number | Number of connections per Nginx worker | 1024 |
+
+### Docker Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `docker_compose_version` | string | Version of Docker Compose to use | "2.20.0" |
+
+### Backup Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `backup_enabled` | bool | Enable backups | true |
+| `backup_cron` | string | Cron schedule for backups | "0 2 * * *" |
+| `backup_retention` | number | Number of days to keep backups | 7 |
+| `backup_encryption_key` | string | Encryption key for backups | "" |
+| `backup_verify` | bool | Enable backup verification | true |
+| `backup_test_frequency` | number | Frequency of backup testing (in days) | 7 |
+
+### Monitoring and Logging
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `log_retention_days` | number | Number of days to retain logs | 30 |
+| `monitoring_enabled` | bool | Enable monitoring | true |
+| `alert_email` | string | Email address for alerts | "" |
+
+### Resource Protection
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `prevent_destroy` | bool | Prevent destruction of critical resources | true |
+| `ignore_changes` | list(string) | List of attributes to ignore changes for | ["user_data"] |
+
+### System Configuration
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `timezone` | string | System timezone | "UTC" |
+
+Note: Variables marked with `-` in the Default column are required and have no default value.
+
 ## Configuration Options
 
 ### Server Configuration

@@ -151,3 +151,170 @@ variable "backup_retention" {
   type        = number
   default     = 7
 }
+
+# Provider Configuration
+variable "provider_retry_max_retries" {
+  description = "Maximum number of retries for provider operations"
+  type        = number
+  default     = 3
+}
+
+variable "provider_retry_min_delay" {
+  description = "Minimum delay between retries in seconds"
+  type        = number
+  default     = 5
+}
+
+variable "provider_retry_max_delay" {
+  description = "Maximum delay between retries in seconds"
+  type        = number
+  default     = 20
+}
+
+# Environment Configuration
+variable "environment" {
+  description = "Environment name (e.g., production, staging, development)"
+  type        = string
+  default     = "production"
+}
+
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+  default     = "paperless-ngx"
+}
+
+variable "managed_by" {
+  description = "Tool used to manage the infrastructure"
+  type        = string
+  default     = "terraform"
+}
+
+# Monitoring and Logging
+variable "log_retention_days" {
+  description = "Number of days to retain logs"
+  type        = number
+  default     = 30
+}
+
+variable "monitoring_enabled" {
+  description = "Enable monitoring"
+  type        = bool
+  default     = true
+}
+
+variable "alert_email" {
+  description = "Email address for alerts"
+  type        = string
+  default     = ""
+}
+
+# Security Configuration
+variable "allowed_ssh_ips" {
+  description = "List of IP addresses allowed to access SSH"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "allowed_http_ips" {
+  description = "List of IP addresses allowed to access HTTP"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "allowed_https_ips" {
+  description = "List of IP addresses allowed to access HTTPS"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "fail2ban_maxretry" {
+  description = "Maximum number of failed login attempts before banning"
+  type        = number
+  default     = 5
+}
+
+variable "fail2ban_bantime" {
+  description = "Duration of ban in seconds"
+  type        = number
+  default     = 3600
+}
+
+variable "fail2ban_findtime" {
+  description = "Time window for counting failed attempts in seconds"
+  type        = number
+  default     = 3600
+}
+
+# Backup Configuration
+variable "backup_encryption_key" {
+  description = "Encryption key for backups"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "backup_verify" {
+  description = "Enable backup verification"
+  type        = bool
+  default     = true
+}
+
+variable "backup_test_frequency" {
+  description = "Frequency of backup testing (in days)"
+  type        = number
+  default     = 7
+}
+
+# Volume Configuration
+variable "volume_format" {
+  description = "Filesystem format for the volume"
+  type        = string
+  default     = "ext4"
+}
+
+variable "volume_mount_options" {
+  description = "Mount options for the volume"
+  type        = string
+  default     = "defaults,nofail"
+}
+
+# Nginx Configuration
+variable "nginx_worker_processes" {
+  description = "Number of Nginx worker processes"
+  type        = number
+  default     = 4
+}
+
+variable "nginx_worker_connections" {
+  description = "Number of connections per Nginx worker"
+  type        = number
+  default     = 1024
+}
+
+# Docker Configuration
+variable "docker_compose_version" {
+  description = "Version of Docker Compose to use"
+  type        = string
+  default     = "2.20.0"
+}
+
+# Resource Protection
+variable "prevent_destroy" {
+  description = "Prevent destruction of critical resources"
+  type        = bool
+  default     = true
+}
+
+variable "ignore_changes" {
+  description = "List of attributes to ignore changes for"
+  type        = list(string)
+  default     = ["user_data"]
+}
+
+# System Configuration
+variable "timezone" {
+  description = "System timezone"
+  type        = string
+  default     = "UTC"
+}

@@ -50,6 +50,9 @@ server {
     add_header X-XSS-Protection "1; mode=block";
     add_header Referrer-Policy "no-referrer-when-downgrade";
     add_header Permissions-Policy "geolocation=(), microphone=()";
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none';" always;
+
+    more_clear_headers Server;
     
     # Client body size limit
     client_max_body_size 100M;
