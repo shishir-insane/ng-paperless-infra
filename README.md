@@ -1,22 +1,44 @@
 # Paperless-NGX Infrastructure on Hetzner Cloud
 
-This Terraform project sets up [Paperless-NGX](https://docs.paperless-ngx.com/) on a Hetzner Cloud server.
+This Terraform project sets up [Paperless-NGX](https://docs.paperless-ngx.com/) on a Hetzner Cloud server. Paperless-NGX is a document management system that allows you to scan, index, and archive your physical documents.
 
-[![Deploy Paperless to Hetzner](https://github.com/shishir-insane/ng-paperless-infra/actions/workflows/deploy.yml/badge.svg)](https://github.com/shishir-insane/ng-paperless-infra/actions/workflows/deploy.yml)
+## Architecture Overview
+
+The infrastructure consists of the following components:
+
+- **Hetzner Cloud Server**: A virtual machine running Ubuntu
+- **Persistent Storage**: A Hetzner Cloud Volume for storing documents and database
+- **Docker Containers**:
+  - Paperless-NGX web application
+  - PostgreSQL database
+  - Redis message broker
+- **Nginx**: Reverse proxy with SSL termination
+- **Backup System**: Automated daily backups of database and configuration
 
 ## Features
 
-- Automated setup of Paperless-NGX using Docker Compose
-- Persistent storage with Hetzner Cloud Volumes
-- Automatic HTTPS with Let's Encrypt (if domain is provided)
-- Scheduled backups of database and configuration
-- Secured with firewall rules
+- **Automated Deployment**: One-click deployment using Terraform
+- **High Availability**: Persistent storage ensures data safety
+- **Security**:
+  - Automatic HTTPS with Let's Encrypt
+  - Firewall rules for network security
+  - Fail2ban for SSH protection
+- **Backup & Recovery**:
+  - Daily automated backups
+  - Configurable retention period
+  - Database and configuration backups
+- **Monitoring**: Basic system monitoring and logging
+- **Document Processing**:
+  - OCR (Optical Character Recognition)
+  - Automatic document classification
+  - Tagging and search capabilities
 
 ## Prerequisites
 
 - [Terraform](https://www.terraform.io/downloads.html) (v1.0.0+)
 - [Hetzner Cloud](https://www.hetzner.com/cloud) account
 - SSH key pair
+- Domain name (optional, but recommended for HTTPS)
 
 ## Project Structure
 
@@ -38,81 +60,131 @@ terraform/
 
 ## Getting Started
 
-1. Clone this repository:
-   ```
+1. **Clone the Repository**:
+   ```bash
    git clone https://github.com/your-username/ng-paperless-infra.git
    cd ng-paperless-infra
    ```
 
-2. Create a terraform.tfvars file based on the example:
-   ```
+2. **Configure Variables**:
+   ```bash
    cp terraform.tfvars.example terraform.tfvars
    ```
+   Edit `terraform.tfvars` with your specific values:
+   - `hcloud_token`: Your Hetzner Cloud API token
+   - `ssh_public_key_path`: Path to your public SSH key
+   - `ssh_private_key_path`: Path to your private SSH key
+   - `paperless_admin_user`: Admin username for Paperless-NGX
+   - `paperless_admin_password`: Strong admin password
+   - `paperless_secret_key`: Random secret key for Django
+   - `domain`: Your domain name (optional)
+   - `ssl_email`: Email for Let's Encrypt notifications
+   - `backup_retention`: Number of days to keep backups
 
-3. Edit terraform.tfvars with your specific values:
-   - Add your Hetzner Cloud API token
-   - Configure your SSH key paths
-   - Set a strong admin password and secret key
-   - Configure your domain (optional)
-
-4. Initialize Terraform:
-   ```
+3. **Initialize Terraform**:
+   ```bash
+   cd terraform
    terraform init
    ```
 
-5. Apply the configuration:
+4. **Review the Plan**:
+   ```bash
+   terraform plan
    ```
+
+5. **Apply the Configuration**:
+   ```bash
    terraform apply
    ```
 
-6. After deployment completes, access Paperless-NGX at the URL provided in the output.
+6. **Access Paperless-NGX**:
+   - If you provided a domain: `https://your-domain.com`
+   - Without domain: `http://server-ip:8000`
 
-## Configuration
+## Configuration Options
 
-The main configuration options are:
+### Server Configuration
+- `server_type`: Size of the server (default: cx21)
+- `volume_size`: Storage volume size in GB (default: 50)
+- `location`: Hetzner Cloud location (default: nbg1)
 
-- `server_type`: Size of the server (cx21 is recommended minimum)
-- `volume_size`: Size of the persistent storage volume in GB
+### Paperless-NGX Settings
 - `paperless_ocr_language`: Language for OCR processing
-- `domain`: Your domain name (optional)
-- `backup_enabled`: Enable automated backups
+- `paperless_time_zone`: Server timezone
+- `paperless_url`: Base URL for the application
+
+### Backup Configuration
+- `backup_enabled`: Enable/disable automated backups
 - `backup_retention`: Number of days to keep backups
+- `backup_cron`: Cron schedule for backups (default: daily at 2 AM)
 
-See variables.tf for all available options.
+## Security Considerations
 
-## Backups
+1. **Network Security**:
+   - Only necessary ports are open (22, 80, 443)
+   - UFW firewall is configured
+   - Fail2ban protects against brute force attacks
 
-Backups are enabled by default and run daily at 2 AM. They include:
-- PostgreSQL database dumps
-- Docker Compose configuration
-- Custom configuration files
+2. **Application Security**:
+   - HTTPS enforced when domain is provided
+   - Strong admin password required
+   - Regular security updates
 
-You can configure backup settings in terraform.tfvars.
+3. **Data Protection**:
+   - Persistent storage for data safety
+   - Regular automated backups
+   - Database encryption
 
-## Security
+## Maintenance
 
-- SSH access is secured with key-based authentication
-- Firewall is configured to allow only necessary ports (SSH, HTTP, HTTPS)
-- HTTPS is automatically configured when a domain is provided
+### Updating Paperless-NGX
+```bash
+ssh root@your-server-ip
+cd /opt/paperless-ngx
+docker-compose pull
+docker-compose up -d
+```
+
+### Checking Logs
+```bash
+ssh root@your-server-ip
+cd /opt/paperless-ngx
+docker-compose logs -f
+```
+
+### Backup Management
+- Backups are stored in `/opt/paperless-ngx/backup`
+- Daily backups include:
+  - PostgreSQL database dump
+  - Configuration files
+  - Docker Compose configuration
 
 ## Troubleshooting
 
-If you encounter issues:
+1. **Server Access Issues**:
+   ```bash
+   ssh root@your-server-ip
+   systemctl status nginx
+   systemctl status docker
+   ```
 
-1. Check the server status:
-   ```
-   ssh root@<server_ip>
-   ```
-
-2. View Docker container logs:
-   ```
+2. **Application Issues**:
+   ```bash
    cd /opt/paperless-ngx
+   docker-compose ps
    docker-compose logs
    ```
 
-3. Verify the volume is properly mounted:
+3. **Storage Issues**:
+   ```bash
+   df -h
+   ls -la /opt/paperless-ngx
    ```
-   df -h | grep paperless
+
+4. **Backup Issues**:
+   ```bash
+   cat /var/log/paperless-backup.log
+   ls -la /opt/paperless-ngx/backup
    ```
 
 ## License
