@@ -29,6 +29,7 @@ services:
       - /opt/paperless-data/media:/usr/src/paperless/media
       - /opt/paperless-data/export:/usr/src/paperless/export
       - /opt/paperless-data/consume:/usr/src/paperless/consume
+      - opt/paperless-data/import:/usr/src/paperless/import
     environment:
       PAPERLESS_REDIS: redis://broker:6379
       PAPERLESS_DBHOST: db

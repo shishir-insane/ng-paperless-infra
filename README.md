@@ -107,9 +107,6 @@ terraform/
 | Variable | Type | Description | Default |
 |----------|------|-------------|---------|
 | `hcloud_token` | string | Hetzner Cloud API token | - |
-| `provider_retry_max_retries` | number | Maximum number of retries for provider operations | 3 |
-| `provider_retry_min_delay` | number | Minimum delay between retries in seconds | 5 |
-| `provider_retry_max_delay` | number | Maximum delay between retries in seconds | 20 |
 
 ### Environment Configuration
 | Variable | Type | Description | Default |
@@ -202,12 +199,6 @@ terraform/
 | `monitoring_enabled` | bool | Enable monitoring | true |
 | `alert_email` | string | Email address for alerts | "" |
 
-### Resource Protection
-| Variable | Type | Description | Default |
-|----------|------|-------------|---------|
-| `prevent_destroy` | bool | Prevent destruction of critical resources | true |
-| `ignore_changes` | list(string) | List of attributes to ignore changes for | ["user_data"] |
-
 ### System Configuration
 | Variable | Type | Description | Default |
 |----------|------|-------------|---------|
@@ -215,22 +206,6 @@ terraform/
 
 Note: Variables marked with `-` in the Default column are required and have no default value.
 
-## Configuration Options
-
-### Server Configuration
-- `server_type`: Size of the server (default: cx21)
-- `volume_size`: Storage volume size in GB (default: 50)
-- `location`: Hetzner Cloud location (default: nbg1)
-
-### Paperless-NGX Settings
-- `paperless_ocr_language`: Language for OCR processing
-- `paperless_time_zone`: Server timezone
-- `paperless_url`: Base URL for the application
-
-### Backup Configuration
-- `backup_enabled`: Enable/disable automated backups
-- `backup_retention`: Number of days to keep backups
-- `backup_cron`: Cron schedule for backups (default: daily at 2 AM)
 
 ## Security Considerations
 

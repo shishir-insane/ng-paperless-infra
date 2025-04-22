@@ -10,23 +10,12 @@ terraform {
 
 provider "hcloud" {
   token = var.hcloud_token
-  
-  # Add retry configuration
-  retry = {
-    max_retries = var.provider_retry_max_retries
-    min_retry_delay = var.provider_retry_min_delay
-    max_retry_delay = var.provider_retry_max_delay
-  }
-  
-  # Add debug logging
-  debug = true
 }
 
 # SSH Key
 resource "hcloud_ssh_key" "paperless_ssh_key" {
   name        = var.ssh_key_name
   public_key  = file(var.ssh_public_key_path)
-  description = "SSH key for Paperless-NGX server access"
   
   labels = {
     environment = var.environment
@@ -35,7 +24,7 @@ resource "hcloud_ssh_key" "paperless_ssh_key" {
   }
 
   lifecycle {
-    prevent_destroy = var.prevent_destroy
+    prevent_destroy = true
   }
 }
 
@@ -43,7 +32,6 @@ resource "hcloud_ssh_key" "paperless_ssh_key" {
 resource "hcloud_network" "paperless_network" {
   name        = var.network_name
   ip_range    = var.network_ip_range
-  description = "Private network for Paperless-NGX infrastructure"
   
   labels = {
     environment = var.environment
@@ -52,7 +40,7 @@ resource "hcloud_network" "paperless_network" {
   }
 
   lifecycle {
-    prevent_destroy = var.prevent_destroy
+    prevent_destroy = true
   }
 }
 
@@ -61,16 +49,9 @@ resource "hcloud_network_subnet" "paperless_subnet" {
   type         = "cloud"
   network_zone = var.subnet_zone
   ip_range     = var.subnet_ip_range
-  description  = "Subnet for Paperless-NGX server"
-  
-  labels = {
-    environment = var.environment
-    managed-by  = var.managed_by
-    project     = var.project_name
-  }
 
   lifecycle {
-    prevent_destroy = var.prevent_destroy
+    prevent_destroy = true
   }
 }
 
@@ -104,13 +85,12 @@ resource "hcloud_server" "paperless" {
   }
 
   lifecycle {
-    prevent_destroy = var.prevent_destroy
-    ignore_changes = var.ignore_changes
+    prevent_destroy = true
+    ignore_changes = [user_data]
   }
 
   depends_on = [
-    hcloud_network_subnet.paperless_subnet,
-    hcloud_volume.paperless_data
+    hcloud_network_subnet.paperless_subnet
   ]
 }
 
@@ -121,7 +101,6 @@ resource "hcloud_volume" "paperless_data" {
   server_id   = hcloud_server.paperless.id
   automount   = true
   format      = var.volume_format
-  description = "Persistent storage for Paperless-NGX data"
   
   labels = {
     environment = var.environment
@@ -131,7 +110,7 @@ resource "hcloud_volume" "paperless_data" {
   }
 
   lifecycle {
-    prevent_destroy = var.prevent_destroy
+    prevent_destroy = true
   }
 
   depends_on = [
@@ -142,7 +121,6 @@ resource "hcloud_volume" "paperless_data" {
 # Firewall
 resource "hcloud_firewall" "paperless_firewall" {
   name        = "paperless-firewall"
-  description = "Firewall rules for Paperless-NGX infrastructure"
   
   labels = {
     environment = var.environment
@@ -155,7 +133,6 @@ resource "hcloud_firewall" "paperless_firewall" {
     protocol  = "tcp"
     port      = "22"
     source_ips = var.allowed_ssh_ips
-    description = "SSH access from allowed IPs"
   }
 
   rule {
@@ -163,7 +140,6 @@ resource "hcloud_firewall" "paperless_firewall" {
     protocol  = "tcp"
     port      = "80"
     source_ips = var.allowed_http_ips
-    description = "HTTP access"
   }
 
   rule {
@@ -171,7 +147,6 @@ resource "hcloud_firewall" "paperless_firewall" {
     protocol  = "tcp"
     port      = "443"
     source_ips = var.allowed_https_ips
-    description = "HTTPS access"
   }
 
   rule {
@@ -179,7 +154,6 @@ resource "hcloud_firewall" "paperless_firewall" {
     protocol  = "tcp"
     port      = "any"
     destination_ips = ["0.0.0.0/0"]
-    description = "Outbound TCP traffic"
   }
 
   rule {
@@ -187,11 +161,10 @@ resource "hcloud_firewall" "paperless_firewall" {
     protocol  = "udp"
     port      = "any"
     destination_ips = ["0.0.0.0/0"]
-    description = "Outbound UDP traffic"
   }
 
   lifecycle {
-    prevent_destroy = var.prevent_destroy
+    prevent_destroy = true
   }
 }
 
@@ -200,7 +173,7 @@ resource "hcloud_firewall_attachment" "paperless_firewall_attachment" {
   server_ids  = [hcloud_server.paperless.id]
   
   lifecycle {
-    prevent_destroy = var.prevent_destroy
+    prevent_destroy = true
   }
 }
 
@@ -298,85 +271,139 @@ resource "null_resource" "paperless_setup" {
   # Main setup script
   provisioner "remote-exec" {
     inline = [
-      # Set error handling
-      "set -e",
-      "set -o pipefail",
+      # Set error handling and debugging
+      "set -x",  # Enable debugging output
+      "exec 2>&1",  # Redirect stderr to stdout
       
       # Create log directory
+      "echo 'Creating log directory...'",
       "mkdir -p /var/log/paperless-setup",
       
       # Update and install dependencies with error handling
-      "apt-get update 2>&1 | tee -a /var/log/paperless-setup/install.log",
-      "DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose fail2ban ufw python3-pip nginx-extras certbot python3-certbot-nginx 2>&1 | tee -a /var/log/paperless-setup/install.log",
+      "echo 'Updating package lists...'",
+      "apt-get update > /var/log/paperless-setup/install.log 2>&1 || { echo 'apt-get update failed'; exit 1; }",
+      
+      "echo 'Installing system dependencies...'",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y python3-pip ufw fail2ban >> /var/log/paperless-setup/install.log 2>&1 || { echo 'System package installation failed'; exit 1; }",
+      
+      "echo 'Installing Docker...'",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io >> /var/log/paperless-setup/install.log 2>&1 || { echo 'Docker installation failed'; exit 1; }",
+      
+      "echo 'Installing Docker Compose...'",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose >> /var/log/paperless-setup/install.log 2>&1 || { echo 'Docker Compose installation failed'; exit 1; }",
+      
+      "echo 'Installing Nginx and Certbot...'",
+      "DEBIAN_FRONTEND=noninteractive apt-get install -y nginx-extras certbot python3-certbot-nginx >> /var/log/paperless-setup/install.log 2>&1 || { echo 'Nginx/Certbot installation failed'; exit 1; }",
       
       # Verify installations
+      "echo 'Verifying installations...'",
       "command -v docker >/dev/null 2>&1 || { echo 'Docker installation failed' >&2; exit 1; }",
       "command -v docker-compose >/dev/null 2>&1 || { echo 'Docker Compose installation failed' >&2; exit 1; }",
       
       # Setup Docker with validation
-      "systemctl enable docker 2>&1 | tee -a /var/log/paperless-setup/docker.log",
-      "systemctl start docker 2>&1 | tee -a /var/log/paperless-setup/docker.log",
+      "echo 'Setting up Docker...'",
+      "systemctl enable docker > /var/log/paperless-setup/docker.log 2>&1 || { echo 'Docker enable failed' >&2; exit 1; }",
+      "systemctl start docker >> /var/log/paperless-setup/docker.log 2>&1 || { echo 'Docker start failed' >&2; exit 1; }",
       "systemctl is-active --quiet docker || { echo 'Docker service failed to start' >&2; exit 1; }",
 
       # Volume safety checks
+      "echo 'Checking volume /dev/sdb...'",
       "if [ ! -b /dev/sdb ]; then",
       "  echo 'Error: Volume /dev/sdb not found' >&2",
+      "  ls -la /dev/sd* >&2",
       "  exit 1",
       "fi",
       
+      "echo 'Checking volume format...'",
       "if ! blkid /dev/sdb; then",
       "  echo 'Error: Volume /dev/sdb appears unformatted' >&2",
       "  exit 1",
       "fi",
       
       # Configure mount with validation
-      "mkdir -p /opt/paperless-data",
-      "grep -q '/dev/sdb' /etc/fstab || echo '/dev/sdb /opt/paperless-data ${var.volume_mount_options} 0 0' >> /etc/fstab",
-      "mount -a 2>&1 | tee -a /var/log/paperless-setup/mount.log",
-      "mount | grep -q '/opt/paperless-data' || { echo 'Volume mount failed' >&2; exit 1; }",
-
-      # Setup directories with proper permissions
-      "for dir in data media export consume config backup; do",
-      "  mkdir -p /opt/paperless-data/$dir",
-      "  chown -R 1000:1000 /opt/paperless-data/$dir",
-      "  chmod 750 /opt/paperless-data/$dir",
-      "done",
+      "echo 'Setting up mount point...'",
+      "mkdir -p ${var.paperless_mount_path}",
+      "chmod 755 ${var.paperless_mount_path}",
       
-      # Verify directory permissions
-      "find /opt/paperless-data -type d -not -perm 750 -ls | tee -a /var/log/paperless-setup/permissions.log",
-
-      # Move configuration files
-      "mv /root/docker-compose.yml /opt/paperless-ngx/",
-      "mv /root/nginx-http.conf /etc/nginx/sites-available/paperless",
-      "ln -sf /etc/nginx/sites-available/paperless /etc/nginx/sites-enabled/",
-      "rm -f /etc/nginx/sites-enabled/default",
-
-      # Configure Nginx and SSL if domain is provided
-      "nginx -t 2>&1 | tee -a /var/log/paperless-setup/nginx.log",
-      "if [ $? -ne 0 ]; then",
-      "  echo 'Nginx configuration test failed' >&2",
+      "echo 'Checking for existing mounts...'",
+      "if mount | grep -q '/dev/sdb'; then",
+      "  echo 'Volume is already mounted, unmounting first...'",
+      "  umount /dev/sdb || { echo 'Failed to unmount existing volume' >&2; exit 1; }",
+      "fi",
+      
+      "echo 'Removing duplicate fstab entries...'",
+      "sed -i '/\\/dev\\/sdb/d' /etc/fstab",
+      
+      "echo 'Adding to fstab...'",
+      "echo '/dev/sdb ${var.paperless_mount_path} ${var.volume_format} ${var.volume_mount_options} 0 0' >> /etc/fstab",
+      
+      "echo 'Mounting volume...'",
+      "mount -a > /var/log/paperless-setup/mount.log 2>&1",
+      
+      "echo 'Verifying mount...'",
+      "if ! mount | grep -q '${var.paperless_mount_path}'; then",
+      "  echo 'Volume mount failed. Checking mount log:' >&2",
+      "  cat /var/log/paperless-setup/mount.log >&2",
+      "  echo 'Current mounts:' >&2",
+      "  mount >&2",
+      "  echo 'fstab contents:' >&2",
+      "  cat /etc/fstab >&2",
       "  exit 1",
       "fi",
       
-      "systemctl reload nginx 2>&1 | tee -a /var/log/paperless-setup/nginx.log",
-      "systemctl is-active --quiet nginx || { echo 'Nginx service failed to start' >&2; exit 1; }",
-      "MAX_RETRIES=3",
-      "RETRY_DELAY=10",
-      "for i in $(seq 1 $MAX_RETRIES); do",
-      "  certbot --nginx -d ${var.domain} \\",
-      "    --non-interactive --agree-tos \\",
-      "    --email ${var.ssl_email} --redirect 2>&1 | tee -a /var/log/paperless-setup/ssl.log",
-      "  if [ $? -eq 0 ]; then",
-      "    break",
-      "  fi",
-      "  echo 'Certbot attempt $i failed. Retrying in $RETRY_DELAY seconds...'",
-      "  sleep $RETRY_DELAY",
+      "echo 'Setting volume permissions...'",
+      "chown -R root:root ${var.paperless_mount_path}",
+      "chmod 755 ${var.paperless_mount_path}",
+
+      # Setup directories with proper permissions
+      "echo 'Creating data directories...'",
+      "for dir in data media export import consume config backup; do",
+      "  mkdir -p ${var.paperless_mount_path}/$dir",
+      "  chown -R 1000:1000 ${var.paperless_mount_path}/$dir",
+      "  chmod 750 ${var.paperless_mount_path}/$dir",
       "done",
+      
+      # Verify directory permissions
+      "echo 'Verifying directory permissions...'",
+      "find ${var.paperless_mount_path} -type d -not -perm 750 -ls > /var/log/paperless-setup/permissions.log",
+
+      # Move configuration files
+      "echo 'Moving configuration files...'",
+      "mkdir -p /opt/paperless-ngx",
+      "mv /root/docker-compose.yml /opt/paperless-ngx/ || { echo 'Failed to move docker-compose.yml' >&2; exit 1; }",
+      "mv /root/nginx-http.conf /etc/nginx/sites-available/paperless || { echo 'Failed to move nginx-http.conf' >&2; exit 1; }",
+      "ln -sf /etc/nginx/sites-available/paperless /etc/nginx/sites-enabled/ || { echo 'Failed to create nginx symlink' >&2; exit 1; }",
+      "rm -f /etc/nginx/sites-enabled/default",
+
+      # Configure Nginx and SSL if domain is provided
+      "echo 'Configuring Nginx...'",
+      "nginx -t > /var/log/paperless-setup/nginx.log 2>&1 || { echo 'Nginx configuration test failed' >&2; exit 1; }",
+      
+      "systemctl reload nginx >> /var/log/paperless-setup/nginx.log 2>&1 || { echo 'Nginx reload failed' >&2; exit 1; }",
+      "systemctl is-active --quiet nginx || { echo 'Nginx service failed to start' >&2; exit 1; }",
+
+      # Configure SSL if domain is provided
+      "if [ -n '${var.domain}' ]; then",
+      "  echo 'Configuring SSL...'",
+      "  MAX_RETRIES=3",
+      "  RETRY_DELAY=10",
+      "  for i in $(seq 1 $MAX_RETRIES); do",
+      "    certbot --nginx -d ${var.domain} \\",
+      "      --non-interactive --agree-tos \\",
+      "      --email ${var.ssl_email} --redirect > /var/log/paperless-setup/ssl.log 2>&1",
+      "    if [ $? -eq 0 ]; then",
+      "      break",
+      "    fi",
+      "    echo 'Certbot attempt $i failed. Retrying in $RETRY_DELAY seconds...'",
+      "    sleep $RETRY_DELAY",
+      "  done",
+      "fi",
 
       "echo 'Setting up certbot auto-renew cron job...'",
       "echo '0 3 * * 1 root certbot renew --quiet --no-self-upgrade' > /etc/cron.d/certbot-renew",
 
-      "echo 'Configuring Fail2Ban for SSH protection...'",
+      # Configure Fail2Ban
+      "echo 'Configuring Fail2Ban...'",
       "cat > /etc/fail2ban/jail.d/ssh.conf << 'EOF'",
       "[sshd]",
       "enabled = true",
@@ -388,67 +415,68 @@ resource "null_resource" "paperless_setup" {
       "findtime = ${var.fail2ban_findtime}",
       "EOF",
       
-      "systemctl enable fail2ban 2>&1 | tee -a /var/log/paperless-setup/fail2ban.log",
-      "systemctl restart fail2ban 2>&1 | tee -a /var/log/paperless-setup/fail2ban.log",
+      "systemctl enable fail2ban > /var/log/paperless-setup/fail2ban.log 2>&1 || { echo 'Fail2ban enable failed' >&2; exit 1; }",
+      "systemctl restart fail2ban >> /var/log/paperless-setup/fail2ban.log 2>&1 || { echo 'Fail2ban restart failed' >&2; exit 1; }",
       "systemctl is-active --quiet fail2ban || { echo 'Fail2ban service failed to start' >&2; exit 1; }",
     
-     "mv /root/paperless-nginx.conf /etc/nginx/sites-available/paperless",
+      # Configure Nginx rate limiting
+      "echo 'Configuring Nginx rate limiting...'",
+      "mv /root/paperless-nginx.conf /etc/nginx/sites-available/paperless || { echo 'Failed to move nginx config' >&2; exit 1; }",
 
       "cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak",
-      "echo 'Ensuring limit_req_zone is defined in nginx.conf...'",
-      <<-EOC
-      cat <<'EOF' > /tmp/patch-nginx.sh
-      #!/bin/bash
+      "cat <<'EOF' > /tmp/patch-nginx.sh",
+      "#!/bin/bash",
+      "set -e",
+      "if ! grep -q 'limit_req_zone $binary_remote_addr zone=mylimit' /etc/nginx/nginx.conf; then",
+      "  echo 'Inserting rate limiting directive into nginx.conf...'",
+      "  cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak",
+      "  sed -i '/http {/a\\'$'\\n''    limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;' /etc/nginx/nginx.conf",
+      "else",
+      "  echo 'Rate limiting directive already exists.'",
+      "fi",
+      "EOF",
 
-      set -e
-
-      # Check if directive already exists
-      if ! grep -q 'limit_req_zone $binary_remote_addr zone=mylimit' /etc/nginx/nginx.conf; then
-        echo "Inserting rate limiting directive into nginx.conf..."
-        cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-        sed -i '/http {/a \    limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;' /etc/nginx/nginx.conf
-      else
-        echo "Rate limiting directive already exists."
-      fi
-      EOF
-
-      chmod +x /tmp/patch-nginx.sh
-      bash /tmp/patch-nginx.sh
-      EOC
-      ,
-      "nginx -t && systemctl reload nginx",
+      "chmod +x /tmp/patch-nginx.sh",
+      "/tmp/patch-nginx.sh",
+      "nginx -t && systemctl reload nginx || { echo 'Nginx configuration failed' >&2; exit 1; }",
 
       # Setup backup
-      "mv /root/backup.sh /opt/paperless-ngx/backup.sh",
+      "echo 'Setting up backup...'",
+      "mv /root/backup.sh /opt/paperless-ngx/backup.sh || { echo 'Failed to move backup script' >&2; exit 1; }",
       "chmod +x /opt/paperless-ngx/backup.sh",
       
       # Configure backup cron job if enabled
       "if [ '${var.backup_enabled}' = 'true' ]; then",
+      "  echo 'Configuring backup cron job...'",
       "  echo '${var.backup_cron} root /opt/paperless-ngx/backup.sh > /var/log/paperless-backup.log 2>&1' > /etc/cron.d/paperless-backup",
       "  chmod 644 /etc/cron.d/paperless-backup",
-      "  /opt/paperless-ngx/backup.sh 2>&1 | tee -a /var/log/paperless-setup/backup.log",
+      "  /opt/paperless-ngx/backup.sh > /var/log/paperless-setup/backup.log 2>&1 || { echo 'Initial backup failed' >&2; exit 1; }",
       "fi",
       
-      # Configure firewall with validation
-      "ufw default deny incoming 2>&1 | tee -a /var/log/paperless-setup/firewall.log",
-      "ufw default allow outgoing 2>&1 | tee -a /var/log/paperless-setup/firewall.log",
-      "ufw allow ssh 2>&1 | tee -a /var/log/paperless-setup/firewall.log",
-      "ufw allow http 2>&1 | tee -a /var/log/paperless-setup/firewall.log",
-      "ufw allow https 2>&1 | tee -a /var/log/paperless-setup/firewall.log",
-      "echo 'y' | ufw enable 2>&1 | tee -a /var/log/paperless-setup/firewall.log",
+      # Configure firewall
+      "echo 'Configuring firewall...'",
+      "ufw default deny incoming > /var/log/paperless-setup/firewall.log 2>&1 || { echo 'Firewall configuration failed' >&2; exit 1; }",
+      "ufw default allow outgoing >> /var/log/paperless-setup/firewall.log 2>&1",
+      "ufw allow ssh >> /var/log/paperless-setup/firewall.log 2>&1",
+      "ufw allow http >> /var/log/paperless-setup/firewall.log 2>&1",
+      "ufw allow https >> /var/log/paperless-setup/firewall.log 2>&1",
+      "echo 'y' | ufw enable >> /var/log/paperless-setup/firewall.log 2>&1 || { echo 'Firewall enable failed' >&2; exit 1; }",
       "ufw status | grep -q 'Status: active' || { echo 'Firewall setup failed' >&2; exit 1; }",
       
       # Final validation
+      "echo 'Starting Paperless-NGX...'",
       "cd /opt/paperless-ngx",
-      "docker-compose up -d 2>&1 | tee -a /var/log/paperless-setup/docker-compose.log",
+      "docker-compose up -d > /var/log/paperless-setup/docker-compose.log 2>&1 || { echo 'Docker Compose up failed' >&2; exit 1; }",
       "sleep 30",  # Wait for containers to start
       "docker-compose ps | grep -q 'Up' || { echo 'Docker containers failed to start' >&2; exit 1; }",
       
       # Cleanup
+      "echo 'Cleaning up...'",
       "rm -f /root/docker-compose.yml /root/nginx-http.conf /root/paperless-nginx.conf /root/backup.sh",
       
       # Final status check
-      "echo 'Setup completed successfully at $(date)' >> /var/log/paperless-setup/setup.log"
+      "echo 'Setup completed successfully at $(date)' >> /var/log/paperless-setup/setup.log",
+      "echo 'Setup completed successfully'"
     ]
   }
 }
